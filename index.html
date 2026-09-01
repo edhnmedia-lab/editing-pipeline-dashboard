@@ -174,6 +174,7 @@ a:hover{text-decoration:underline}
 .section-head{display:flex;align-items:baseline;gap:12px;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap}
 .section-title{font-size:15px;font-weight:650}
 .section-note{font-size:12.5px;color:var(--text-3)}
+.section-head .segmented{align-self:center}
 
 /* KPI grid */
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
@@ -273,6 +274,12 @@ select{appearance:none;padding-right:30px;background-image:linear-gradient(45deg
 .kcard.is-overdue{border-left:3px solid var(--danger)}
 .kcard.is-soon{border-left:3px solid var(--warn)}
 .kcard.is-revision{border-left:3px solid var(--violet)}
+.kcard[draggable="true"]{cursor:grab}
+.kcard.dragging{opacity:.45;transform:scale(.96) rotate(-1deg);box-shadow:none;cursor:grabbing}
+.kcol-body{transition:background var(--t),box-shadow var(--t);border-radius:var(--radius-sm)}
+.kcol-body.drag-over{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}
+@keyframes kcardIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.kcard{animation:kcardIn 200ms cubic-bezier(.2,.7,.3,1) both}
 .kcard-client{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:650}
 .kcard-title{font-size:13px;font-weight:600;line-height:1.35}
 .kcard-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -680,6 +687,10 @@ tbody tr:last-child td{border-bottom:0}
           <option value="none">No revisions</option>
         </select>
       </div>
+      <div class="filter-field" id="assigneeFilterField" hidden>
+        <label for="assigneeFilter">Assignee</label>
+        <select id="assigneeFilter"><option value="all">All assignees</option></select>
+      </div>
       <button class="btn btn-ghost btn-sm" id="clearFiltersBtn">Clear filters</button>
     </div>
 
@@ -713,7 +724,11 @@ tbody tr:last-child td{border-bottom:0}
   <section class="section" aria-labelledby="perfHeading">
     <div class="section-head">
       <h2 class="section-title" id="perfHeading">My performance</h2>
-      <span class="section-note">Delivered videos over the last 6 months — your data only</span>
+      <span class="section-note" id="perfNote">Delivered videos over the last 6 months — your data only</span>
+      <div class="segmented" id="metricsScopeToggle" role="group" aria-label="Performance data scope" hidden>
+        <button type="button" data-scope="global" aria-pressed="true">Global</button>
+        <button type="button" data-scope="local" aria-pressed="false">Local</button>
+      </div>
     </div>
     <div class="perf-grid">
       <div class="card chart-card">
@@ -975,9 +990,12 @@ var state = {
   priority: "all",
   deadline: "all",
   revisions: "all",
+  assignee: "all",        /* owner/admin only — see filteredProjects() */
+  metricsScope: "global", /* owner/admin only — "global" or "local", see performancePool() */
   sortKey: "due",
   sortDir: 1,
   openProjectId: null,
+  editingProjectId: null, /* set while briefModal is open in edit mode */
   lastFocused: null
 };
 
@@ -1151,6 +1169,7 @@ function filteredProjects(){
     return matchesSearch(p, q)
       && (state.status === "all" || p.stage === state.status)
       && (state.priority === "all" || p.priority === state.priority)
+      && (state.assignee === "all" || String(p.editorId) === String(state.assignee))
       && matchesDeadline(p, state.deadline)
       && matchesRevisions(p, state.revisions);
   });
@@ -1223,8 +1242,20 @@ function metrics(){
   };
 }
 
-function monthlyBuckets(){
-  var delivered = myProjects().filter(function(p){ return p.stage === "delivered" && p.deliveredAt; });
+/* Which projects feed the "My performance" chart + stats. Unlike myProjects()
+   (which the server already scopes for the rest of the dashboard), this
+   respects the owner/admin-only Global/Local toggle: Global is everyone,
+   ignoring the assignee filter; Local is whichever assignee is selected in
+   the filter, falling back to the viewer's own projects if none is. */
+function performancePool(){
+  if(currentUser.role === "editor") return myProjects();
+  if(state.metricsScope === "global") return state.projects;
+  var scopeId = state.assignee !== "all" ? state.assignee : currentUser.id;
+  return state.projects.filter(function(p){ return String(p.editorId) === String(scopeId); });
+}
+
+function monthlyBuckets(pool){
+  var delivered = pool.filter(function(p){ return p.stage === "delivered" && p.deliveredAt; });
   var now = new Date();
   var buckets = [];
   for(var i = 5; i >= 0; i--){
@@ -1355,7 +1386,7 @@ function renderKanban(){
       ? items.map(function(p){
           var d = dueLabel(p);
           var revs = openRevisions(p);
-          return '<button type="button" class="kcard ' + urgencyClass(p) + '" data-open="' + esc(p.id) + '">' +
+          return '<button type="button" class="kcard ' + urgencyClass(p) + '" data-open="' + esc(p.id) + '" draggable="true" data-drag-id="' + esc(p.id) + '">' +
             '<span class="kcard-client">' + esc(p.client) + '</span>' +
             '<span class="kcard-title">' + esc(p.title) + '</span>' +
             '<span class="kcard-foot">' + pill(PRIORITY_TONE[p.priority], p.priority) +
@@ -1372,7 +1403,7 @@ function renderKanban(){
         '<span class="kcol-title">' + esc(stage.label) + '</span>' +
         '<span class="kcol-count">' + items.length + '</span>' +
       '</header>' +
-      '<div class="kcol-body">' + body + '</div>' +
+      '<div class="kcol-body" data-drop-stage="' + esc(stage.id) + '">' + body + '</div>' +
     '</section>';
   }).join("");
 }
@@ -1439,9 +1470,27 @@ function renderResultCount(){
     : "Showing " + shown + " of " + mine + " of your projects";
 }
 
+function renderPerfNote(){
+  var note = $("perfNote");
+  if(currentUser.role === "editor"){
+    note.textContent = "Delivered videos over the last 6 months — your data only";
+    return;
+  }
+  if(state.metricsScope === "global"){
+    note.textContent = "Delivered videos over the last 6 months — all editors";
+    return;
+  }
+  if(state.assignee === "all"){
+    note.textContent = "Delivered videos over the last 6 months — your data only";
+  }else{
+    note.textContent = "Delivered videos over the last 6 months — " + editorName(Number(state.assignee)) + "’s data";
+  }
+}
+
 /* ---- Native SVG chart. No chart library. ---- */
 function renderChart(){
-  var buckets = monthlyBuckets();
+  renderPerfNote();
+  var buckets = monthlyBuckets(performancePool());
   var max = Math.max(1, buckets.reduce(function(m,b){ return Math.max(m, b.total); }, 0));
   var yTop = Math.ceil(max / 2) * 2;
   if(yTop < 2) yTop = 2;
@@ -1989,13 +2038,87 @@ function setView(view){
 
 function clearFilters(){
   state.search = ""; state.status = "all"; state.priority = "all";
-  state.deadline = "all"; state.revisions = "all";
+  state.deadline = "all"; state.revisions = "all"; state.assignee = "all";
   $("searchInput").value = "";
   $("statusFilter").value = "all";
   $("priorityFilter").value = "all";
   $("deadlineFilter").value = "all";
   $("revisionFilter").value = "all";
-  renderKanban(); renderTable(); renderResultCount();
+  $("assigneeFilter").value = "all";
+  renderKanban(); renderTable(); renderResultCount(); renderChart();
+}
+
+function populateAssigneeFilter(){
+  var select = $("assigneeFilter");
+  select.innerHTML = '<option value="all">All assignees</option>';
+  teamDirectory.filter(function(u){ return u.role === "editor"; }).forEach(function(u){
+    var o = document.createElement("option");
+    o.value = u.id; o.textContent = u.name || u.email;
+    select.appendChild(o);
+  });
+}
+
+/* Drag-and-drop stage changes. Delegated on the #kanban container itself
+   (its children are replaced wholesale on every render) so the listeners
+   survive re-renders without being re-attached. Drops call the exact same
+   setStage() the drawer's stage dropdown uses — no new endpoint, no new
+   validation, and the same 403-on-foreign-project guard already in
+   update.php applies unchanged. */
+function wireKanbanDragDrop(){
+  var kanban = $("kanban");
+  var draggedId = null;
+  var overEl = null;
+
+  kanban.addEventListener("dragstart", function(e){
+    var card = e.target.closest("[data-drag-id]");
+    if(!card) return;
+    draggedId = card.getAttribute("data-drag-id");
+    card.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", draggedId);
+  });
+
+  kanban.addEventListener("dragend", function(e){
+    var card = e.target.closest("[data-drag-id]");
+    if(card) card.classList.remove("dragging");
+    if(overEl){ overEl.classList.remove("drag-over"); overEl = null; }
+    draggedId = null;
+  });
+
+  kanban.addEventListener("dragover", function(e){
+    var col = e.target.closest("[data-drop-stage]");
+    if(!col) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if(overEl !== col){
+      if(overEl) overEl.classList.remove("drag-over");
+      col.classList.add("drag-over");
+      overEl = col;
+    }
+  });
+
+  kanban.addEventListener("dragleave", function(e){
+    var col = e.target.closest("[data-drop-stage]");
+    if(!col || col !== overEl) return;
+    if(col.contains(e.relatedTarget)) return;
+    col.classList.remove("drag-over");
+    overEl = null;
+  });
+
+  kanban.addEventListener("drop", function(e){
+    var col = e.target.closest("[data-drop-stage]");
+    if(!col) return;
+    e.preventDefault();
+    col.classList.remove("drag-over");
+    overEl = null;
+    var id = draggedId || e.dataTransfer.getData("text/plain");
+    draggedId = null;
+    if(!id) return;
+    var stageId = col.getAttribute("data-drop-stage");
+    var p = findProject(id);
+    if(!p || p.stage === stageId) return;
+    setStage(id, stageId);
+  });
 }
 
 function wireEvents(){
@@ -2015,7 +2138,14 @@ function wireEvents(){
         renderKanban(); renderTable(); renderResultCount();
       });
     });
+  $("assigneeFilter").addEventListener("change", function(e){
+    state.assignee = e.target.value;
+    renderKanban(); renderTable(); renderResultCount();
+    if(state.metricsScope === "local") renderChart();
+  });
   $("clearFiltersBtn").addEventListener("click", clearFilters);
+
+  wireKanbanDragDrop();
 
   /* sortable table headers */
   Array.prototype.forEach.call(document.querySelectorAll("thead th button[data-sort]"), function(btn){
@@ -2131,6 +2261,19 @@ function wireEvents(){
       openUsersModal().catch(function(e){ toast("err","Could not open Manage Users", e.message); });
     });
     $("usersClose").addEventListener("click", closeUsersModal);
+
+    $("assigneeFilterField").hidden = false;
+    $("metricsScopeToggle").hidden = false;
+    Array.prototype.forEach.call($("metricsScopeToggle").querySelectorAll("button"), function(btn){
+      btn.addEventListener("click", function(){
+        if(state.metricsScope === btn.getAttribute("data-scope")) return;
+        state.metricsScope = btn.getAttribute("data-scope");
+        Array.prototype.forEach.call($("metricsScopeToggle").querySelectorAll("button"), function(b){
+          b.setAttribute("aria-pressed", String(b === btn));
+        });
+        renderChart();
+      });
+    });
     $("inviteForm").addEventListener("submit", async function(e){
       e.preventDefault();
       var email = $("inviteEmail").value.trim();
@@ -2251,6 +2394,7 @@ async function enterApp(){
   $("appRoot").hidden = false;
   populateSelects();
   await loadTeamDirectory();
+  populateAssigneeFilter();
   await load();
   renderIdentity();
   setView("pipeline");
