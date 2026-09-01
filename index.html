@@ -1,0 +1,2625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Frame &amp; Fold — Editor Production Dashboard</title>
+<style>
+/* ============================================================
+   DESIGN SYSTEM — tokens
+   ============================================================ */
+:root{
+  --bg:#0a0c11;
+  --bg-grad:radial-gradient(1200px 600px at 15% -10%, #16203a 0%, transparent 60%),
+            radial-gradient(900px 500px at 100% 0%, #1a1630 0%, transparent 55%);
+  --surface:#12151d;
+  --surface-2:#171b25;
+  --surface-3:#1d2230;
+  --line:#232936;
+  --line-strong:#333b4d;
+  --text:#eef1f7;
+  --text-2:#a5aec1;
+  --text-3:#6d768a;
+  --accent:#7c8cff;
+  --accent-2:#9d7cff;
+  --accent-soft:rgba(124,140,255,.15);
+  --ok:#3ecf8e;      --ok-soft:rgba(62,207,142,.13);
+  --warn:#f2b344;    --warn-soft:rgba(242,179,68,.13);
+  --danger:#ff6b7a;  --danger-soft:rgba(255,107,122,.13);
+  --info:#4cc9f0;    --info-soft:rgba(76,201,240,.13);
+  --violet:#b388ff;  --violet-soft:rgba(179,136,255,.13);
+  --radius:14px;
+  --radius-sm:10px;
+  --radius-xs:8px;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);
+  --shadow-2:0 12px 32px rgba(0,0,0,.45);
+  --t:170ms cubic-bezier(.2,.7,.3,1);
+  --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  background-image:var(--bg-grad);
+  background-attachment:fixed;
+  color:var(--text);
+  font-family:var(--font);
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:-.01em}
+p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* Focus visibility — keyboard users must always see where they are. */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.skip-link{position:absolute;left:12px;top:-60px;z-index:200;background:var(--accent);color:#0a0c11;padding:8px 14px;border-radius:8px;font-weight:600;transition:top var(--t)}
+.skip-link:focus{top:12px}
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.shell{max-width:1440px;margin:0 auto;padding:0 20px 72px}
+
+/* Top bar */
+.topbar{
+  position:sticky;top:0;z-index:60;
+  background:rgba(10,12,17,.82);
+  backdrop-filter:saturate(160%) blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-inner{
+  max-width:1440px;margin:0 auto;padding:10px 20px;
+  display:flex;align-items:center;gap:16px;
+}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand-mark{
+  width:32px;height:32px;border-radius:9px;flex:none;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  display:grid;place-items:center;color:#0a0c11;font-weight:800;font-size:13px;
+  box-shadow:0 4px 14px rgba(124,140,255,.35);
+}
+.brand-name{font-weight:650;font-size:14.5px;white-space:nowrap}
+.brand-sub{color:var(--text-3);font-size:11.5px;white-space:nowrap}
+.topbar-spacer{flex:1}
+.today-chip{
+  display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);
+  background:var(--surface);border:1px solid var(--line);padding:6px 11px;border-radius:999px;white-space:nowrap;
+}
+.dot-live{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+
+.icon-btn{
+  position:relative;display:grid;place-items:center;
+  width:34px;height:34px;border-radius:10px;
+  background:var(--surface);border:1px solid var(--line);cursor:pointer;
+  transition:background var(--t),border-color var(--t),transform var(--t);
+}
+.icon-btn:hover{background:var(--surface-3);border-color:var(--line-strong)}
+.icon-btn:active{transform:translateY(1px)}
+.badge-count{
+  position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;
+  border-radius:9px;background:var(--danger);color:#1a0508;font-size:10.5px;font-weight:700;
+  display:grid;place-items:center;border:2px solid var(--bg);
+}
+.profile{
+  display:flex;align-items:center;gap:9px;padding:4px 10px 4px 4px;
+  background:var(--surface);border:1px solid var(--line);border-radius:999px;
+}
+.avatar{
+  width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;
+  font-size:11.5px;font-weight:700;color:#0a0c11;
+  background:linear-gradient(135deg,#8fe3c1,#7c8cff);
+}
+.profile-name{font-size:12.5px;font-weight:600;line-height:1.15}
+.profile-role{font-size:10.5px;color:var(--text-3);line-height:1.15}
+
+/* Notification popover */
+.popover{
+  position:absolute;top:calc(100% + 10px);right:0;width:min(370px,calc(100vw - 32px));
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius);
+  box-shadow:var(--shadow-2);padding:8px;z-index:70;
+}
+.popover[hidden]{display:none}
+.popover-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px 10px}
+.popover-title{font-size:13px;font-weight:650}
+.notif{
+  display:flex;gap:10px;padding:10px;border-radius:var(--radius-sm);
+  background:transparent;border:1px solid transparent;width:100%;text-align:left;cursor:pointer;
+  transition:background var(--t),border-color var(--t);
+}
+.notif:hover{background:var(--surface-2);border-color:var(--line)}
+.notif-icon{width:26px;height:26px;border-radius:8px;flex:none;display:grid;place-items:center;font-size:13px}
+.notif-title{font-size:12.5px;font-weight:600}
+.notif-meta{font-size:11.5px;color:var(--text-3)}
+
+/* Welcome header */
+.welcome{padding:28px 0 18px;display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;justify-content:space-between}
+.welcome h1{font-size:26px;letter-spacing:-.02em}
+.welcome .lede{color:var(--text-2);margin-top:6px;max-width:70ch;font-size:13.5px}
+.welcome .lede strong{color:var(--text);font-weight:600}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 14px;border-radius:10px;cursor:pointer;
+  border:1px solid var(--line-strong);background:var(--surface-2);color:var(--text);
+  font-size:13px;font-weight:600;
+  transition:background var(--t),border-color var(--t),transform var(--t),box-shadow var(--t);
+}
+.btn:hover{background:var(--surface-3);border-color:#3f4860}
+.btn:active{transform:translateY(1px)}
+.btn-primary{
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  border-color:transparent;color:#0a0c11;box-shadow:0 6px 18px rgba(124,140,255,.28);
+}
+.btn-primary:hover{filter:brightness(1.07);background:linear-gradient(135deg,var(--accent),var(--accent-2))}
+.btn-ghost{background:transparent;border-color:var(--line)}
+.btn-danger{color:var(--danger);border-color:rgba(255,107,122,.35);background:var(--danger-soft)}
+.btn-sm{padding:6px 11px;font-size:12px;border-radius:9px}
+
+/* Cards */
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow-1);
+}
+.section{margin-top:26px}
+.section-head{display:flex;align-items:baseline;gap:12px;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap}
+.section-title{font-size:15px;font-weight:650}
+.section-note{font-size:12.5px;color:var(--text-3)}
+
+/* KPI grid */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi{padding:16px 16px 14px;position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--accent);opacity:.85}
+.kpi.kpi-warn::after{background:var(--warn)}
+.kpi.kpi-danger::after{background:var(--danger)}
+.kpi.kpi-ok::after{background:var(--ok)}
+.kpi-label{font-size:12px;color:var(--text-2);font-weight:550;letter-spacing:.01em}
+.kpi-value{font-size:30px;font-weight:700;letter-spacing:-.03em;margin-top:6px;line-height:1}
+.kpi-sub{font-size:11.5px;color:var(--text-3);margin-top:7px}
+.kpi-sub .up{color:var(--ok)}
+.kpi-sub .down{color:var(--danger)}
+
+/* Work next */
+.worknext{padding:6px}
+.worknext-empty{padding:26px;text-align:center;color:var(--text-3);font-size:13px}
+.wn-row{
+  display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:center;
+  width:100%;text-align:left;background:transparent;border:1px solid transparent;
+  border-radius:var(--radius-sm);padding:11px 12px;cursor:pointer;
+  transition:background var(--t),border-color var(--t);
+}
+.wn-row:hover{background:var(--surface-2);border-color:var(--line)}
+.wn-rank{
+  width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+  font-size:11.5px;font-weight:700;background:var(--surface-3);color:var(--text-2);
+}
+.wn-title{font-size:13.5px;font-weight:600}
+.wn-meta{font-size:11.5px;color:var(--text-3);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.wn-right{display:flex;align-items:center;gap:10px}
+
+/* Pills / chips */
+.pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 9px;border-radius:999px;font-size:11px;font-weight:650;
+  border:1px solid transparent;white-space:nowrap;
+}
+.pill .pdot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.tone-slate{color:#aab4c8;background:rgba(170,180,200,.11);border-color:rgba(170,180,200,.2)}
+.tone-info{color:var(--info);background:var(--info-soft);border-color:rgba(76,201,240,.24)}
+.tone-violet{color:var(--violet);background:var(--violet-soft);border-color:rgba(179,136,255,.24)}
+.tone-warn{color:var(--warn);background:var(--warn-soft);border-color:rgba(242,179,68,.24)}
+.tone-teal{color:#5fe0c8;background:rgba(95,224,200,.12);border-color:rgba(95,224,200,.24)}
+.tone-danger{color:var(--danger);background:var(--danger-soft);border-color:rgba(255,107,122,.26)}
+.tone-ok{color:var(--ok);background:var(--ok-soft);border-color:rgba(62,207,142,.24)}
+.tone-done{color:#8b95ab;background:rgba(139,149,171,.1);border-color:rgba(139,149,171,.2)}
+.tone-accent{color:var(--accent);background:var(--accent-soft);border-color:rgba(124,140,255,.28)}
+
+.due{font-size:12px;font-weight:600;white-space:nowrap}
+.due-overdue{color:var(--danger)}
+.due-soon{color:var(--warn)}
+.due-ok{color:var(--text-2)}
+.due-done{color:var(--text-3)}
+
+/* View switcher + toolbar */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.segmented{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:3px;gap:3px}
+.segmented button{
+  border:0;background:transparent;color:var(--text-2);cursor:pointer;
+  padding:7px 14px;border-radius:8px;font-size:12.5px;font-weight:600;transition:all var(--t);
+}
+.segmented button[aria-pressed="true"]{background:var(--surface-3);color:var(--text);box-shadow:var(--shadow-1)}
+.search-wrap{position:relative;flex:1;min-width:210px;max-width:380px}
+.search-wrap svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.5}
+input[type="search"],input[type="text"],input[type="url"],input[type="date"],input[type="time"],input[type="number"],input[type="password"],input[type="email"],select,textarea{
+  width:100%;background:var(--surface);border:1px solid var(--line);
+  border-radius:10px;padding:9px 12px;color:var(--text);font-size:13px;
+  transition:border-color var(--t),background var(--t),box-shadow var(--t);
+}
+input:hover,select:hover,textarea:hover{border-color:var(--line-strong)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+input[type="search"]{padding-left:34px}
+textarea{resize:vertical;min-height:78px;line-height:1.55}
+select{appearance:none;padding-right:30px;background-image:linear-gradient(45deg,transparent 50%,var(--text-3) 50%),linear-gradient(135deg,var(--text-3) 50%,transparent 50%);background-position:calc(100% - 16px) 52%,calc(100% - 11px) 52%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+.filter-field{min-width:132px}
+.filter-field label{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:4px;font-weight:650}
+.active-filters{font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:8px}
+
+/* Kanban */
+.kanban{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(232px,1fr);gap:12px;overflow-x:auto;padding-bottom:10px}
+.kanban::-webkit-scrollbar{height:9px}
+.kanban::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:9px}
+.kcol{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;min-height:150px}
+.kcol-head{display:flex;align-items:center;gap:8px;padding:11px 12px;border-bottom:1px solid var(--line)}
+.kcol-title{font-size:12px;font-weight:650;letter-spacing:.005em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kcol-count{font-size:11px;font-weight:700;color:var(--text-2);background:var(--surface-3);border-radius:7px;padding:1px 7px}
+.kcol-body{padding:9px;display:flex;flex-direction:column;gap:9px;flex:1}
+.kcol-empty{color:var(--text-3);font-size:11.5px;text-align:center;padding:16px 6px;border:1px dashed var(--line);border-radius:var(--radius-sm)}
+.kcard{
+  text-align:left;width:100%;cursor:pointer;
+  background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);
+  padding:11px;display:flex;flex-direction:column;gap:8px;
+  transition:transform var(--t),border-color var(--t),background var(--t),box-shadow var(--t);
+}
+.kcard:hover{transform:translateY(-2px);border-color:var(--line-strong);background:var(--surface-3);box-shadow:var(--shadow-2)}
+.kcard.is-overdue{border-left:3px solid var(--danger)}
+.kcard.is-soon{border-left:3px solid var(--warn)}
+.kcard.is-revision{border-left:3px solid var(--violet)}
+.kcard-client{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:650}
+.kcard-title{font-size:13px;font-weight:600;line-height:1.35}
+.kcard-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* Progress */
+.progress{height:5px;border-radius:4px;background:var(--surface-3);overflow:hidden;position:relative;min-width:56px}
+.progress > i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width 420ms cubic-bezier(.2,.7,.3,1)}
+.progress.p-ok > i{background:linear-gradient(90deg,#33b57c,var(--ok))}
+.progress.p-warn > i{background:linear-gradient(90deg,#d99a2f,var(--warn))}
+.progress-row{display:flex;align-items:center;gap:9px;min-width:120px}
+.progress-val{font-size:11.5px;color:var(--text-2);font-variant-numeric:tabular-nums;width:34px;text-align:right}
+
+/* Table */
+.table-wrap{overflow-x:auto;border-radius:var(--radius)}
+table{width:100%;border-collapse:separate;border-spacing:0;min-width:840px}
+thead th{
+  position:sticky;top:0;background:var(--surface-2);z-index:2;
+  text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--text-3);font-weight:700;padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+thead th button{background:none;border:0;color:inherit;font:inherit;cursor:pointer;display:inline-flex;gap:5px;align-items:center;padding:0}
+thead th button:hover{color:var(--text-2)}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:13px}
+tbody tr{cursor:pointer;transition:background var(--t)}
+tbody tr:hover{background:var(--surface-2)}
+tbody tr:last-child td{border-bottom:0}
+.cell-title{font-weight:600}
+.cell-sub{font-size:11.5px;color:var(--text-3);margin-top:2px}
+.rev-chip{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:7px;font-size:11.5px;font-weight:700;background:var(--surface-3);color:var(--text-3)}
+.rev-chip.has{background:var(--violet-soft);color:var(--violet)}
+.rev-chip.open{background:var(--danger-soft);color:var(--danger)}
+
+.empty-state{padding:48px 24px;text-align:center}
+.empty-emoji{font-size:30px}
+.empty-title{font-size:15px;font-weight:650;margin-top:10px}
+.empty-body{color:var(--text-3);font-size:13px;margin-top:6px;max-width:46ch;margin-inline:auto}
+
+/* Performance */
+.perf-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:14px}
+.chart-card{padding:18px}
+.chart-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-3);margin-top:10px}
+.legend-key{display:inline-flex;align-items:center;gap:6px}
+.legend-swatch{width:10px;height:10px;border-radius:3px}
+.chart svg{width:100%;height:auto;display:block}
+.chart .bar{transition:opacity var(--t)}
+.chart .bar:hover{opacity:.82}
+.perf-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}
+.stat{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+.stat-label{font-size:11px;color:var(--text-3);font-weight:600}
+.stat-value{font-size:19px;font-weight:700;margin-top:3px;letter-spacing:-.02em}
+
+/* Drawer */
+.scrim{position:fixed;inset:0;background:rgba(5,7,11,.66);backdrop-filter:blur(3px);z-index:90;opacity:0;transition:opacity var(--t)}
+.scrim.show{opacity:1}
+.scrim[hidden]{display:none}
+.drawer{
+  position:fixed;top:0;right:0;height:100dvh;width:min(560px,100vw);
+  background:var(--surface);border-left:1px solid var(--line-strong);
+  z-index:100;display:flex;flex-direction:column;
+  transform:translateX(100%);transition:transform 220ms cubic-bezier(.2,.7,.3,1);
+  box-shadow:-24px 0 60px rgba(0,0,0,.5);
+}
+.drawer.show{transform:translateX(0)}
+.drawer[hidden]{display:none}
+.drawer-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+.drawer-body{padding:18px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:18px}
+.drawer-title{font-size:17px;font-weight:650;letter-spacing:-.015em}
+.drawer-sub{font-size:12px;color:var(--text-3);margin-top:3px}
+.dblock{border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface-2);padding:14px}
+.dblock h3{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:10px;font-weight:700}
+.kv{display:grid;grid-template-columns:118px 1fr;gap:7px 12px;font-size:12.5px}
+.kv dt{color:var(--text-3)}
+.kv dd{margin:0;color:var(--text)}
+.check{display:flex;gap:10px;align-items:flex-start;padding:7px 8px;border-radius:8px;cursor:pointer;transition:background var(--t)}
+.check:hover{background:var(--surface-3)}
+.check input{width:16px;height:16px;margin:2px 0 0;accent-color:var(--accent);flex:none;cursor:pointer}
+.check span{font-size:13px}
+.check input:checked + span{color:var(--text-3);text-decoration:line-through}
+.linklist{display:flex;flex-direction:column;gap:7px}
+.linkrow{display:flex;align-items:center;gap:9px;font-size:12.5px;background:var(--surface-3);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.linkrow .ltype{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:700;flex:none}
+.linkrow a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rev-item{border:1px solid var(--line);border-radius:9px;padding:10px 11px;background:var(--surface-3);display:flex;gap:10px;align-items:flex-start}
+.rev-item.done{opacity:.62}
+.rev-body{flex:1;min-width:0}
+.rev-note{font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.rev-meta{font-size:11px;color:var(--text-3);margin-top:5px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field > label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:700}
+.field .hint{font-size:11.5px;color:var(--text-3)}
+.err{color:var(--danger);font-size:11.5px;min-height:0}
+.field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--danger);box-shadow:0 0 0 3px var(--danger-soft)}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.inline-form{display:flex;gap:8px;align-items:flex-end}
+.inline-form .field{flex:1}
+
+/* Modal */
+.modal{
+  position:fixed;z-index:100;inset:0;display:grid;place-items:start center;
+  padding:5vh 16px;overflow-y:auto;
+}
+.modal[hidden]{display:none}
+.modal-panel{
+  width:min(720px,100%);background:var(--surface);border:1px solid var(--line-strong);
+  border-radius:16px;box-shadow:var(--shadow-2);overflow:hidden;
+  transform:translateY(10px) scale(.99);opacity:0;transition:opacity var(--t),transform var(--t);
+}
+.modal.show .modal-panel{transform:none;opacity:1}
+.modal-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:12px}
+.modal-body{padding:18px;display:flex;flex-direction:column;gap:14px;max-height:66vh;overflow-y:auto}
+.modal-foot{padding:14px 18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface-2)}
+
+/* Toasts */
+.toasts{position:fixed;bottom:18px;right:18px;z-index:120;display:flex;flex-direction:column;gap:9px;max-width:min(360px,calc(100vw - 32px))}
+.toast{
+  display:flex;gap:10px;align-items:flex-start;
+  background:var(--surface-3);border:1px solid var(--line-strong);border-left:3px solid var(--accent);
+  border-radius:11px;padding:11px 13px;box-shadow:var(--shadow-2);
+  animation:toastIn 220ms cubic-bezier(.2,.7,.3,1);font-size:12.5px;
+}
+.toast.ok{border-left-color:var(--ok)}
+.toast.err{border-left-color:var(--danger)}
+.toast.info{border-left-color:var(--info)}
+.toast strong{display:block;font-size:12.5px;margin-bottom:1px}
+.toast span{color:var(--text-2)}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+
+.footnote{margin-top:30px;color:var(--text-3);font-size:11.5px;line-height:1.7;border-top:1px solid var(--line);padding-top:16px}
+
+/* ============================================================
+   AUTH SCREEN
+   PRODUCTION NOTE: this entire screen is a UX simulation. A static,
+   single-file front end cannot perform a real OAuth token exchange —
+   that requires a confidential client secret held on a server, which
+   must never ship in browser-readable code. In production this
+   screen would redirect to a real provider (Google / GitHub / SSO)
+   or to a hosted auth service (NextAuth.js, Auth0, Clerk, Supabase
+   Auth), and the server would set a verified, http-only session
+   cookie. The editor identity used for row-level authorization must
+   always come from that verified server session — never from
+   anything stored in the browser, including localStorage.
+   ============================================================ */
+.auth-screen{
+  min-height:100dvh;display:flex;align-items:center;justify-content:center;
+  padding:32px 18px;position:relative;overflow:hidden;
+}
+.auth-screen[hidden]{display:none}
+.auth-card{
+  width:min(410px,100%);background:var(--surface);border:1px solid var(--line-strong);
+  border-radius:18px;box-shadow:var(--shadow-2);padding:28px 26px 24px;position:relative;z-index:1;
+}
+.auth-brand{display:flex;align-items:center;gap:11px;margin-bottom:22px}
+.auth-brand .brand-mark{width:38px;height:38px;border-radius:11px;font-size:15px}
+.auth-brand-name{font-weight:650;font-size:15px}
+.auth-brand-sub{color:var(--text-3);font-size:11.5px;margin-top:1px}
+.auth-heading{font-size:19px;font-weight:650;letter-spacing:-.01em;margin-bottom:4px}
+.auth-lede{color:var(--text-2);font-size:12.5px;margin-bottom:20px}
+.oauth-btn{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:10px 14px;border-radius:10px;border:1px solid var(--line-strong);
+  background:var(--surface-2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;
+  transition:background var(--t),border-color var(--t),transform var(--t);
+}
+.oauth-btn:hover{background:var(--surface-3);border-color:#3f4860}
+.oauth-btn:active{transform:translateY(1px)}
+.oauth-btn:disabled{opacity:.6;cursor:default;transform:none}
+.oauth-btn + .oauth-btn{margin-top:9px}
+.oauth-divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--text-3);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.oauth-divider::before,.oauth-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.auth-tabs{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:3px;gap:3px;margin-bottom:16px;width:100%}
+.auth-tabs button{
+  flex:1;border:0;background:transparent;color:var(--text-2);cursor:pointer;
+  padding:7px 10px;border-radius:8px;font-size:12.5px;font-weight:600;transition:all var(--t);
+}
+.auth-tabs button[aria-selected="true"]{background:var(--surface-3);color:var(--text);box-shadow:var(--shadow-1)}
+.auth-form{display:flex;flex-direction:column;gap:13px}
+.auth-hint{font-size:11.5px;color:var(--text-3);background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-top:16px;line-height:1.55}
+.auth-hint code{font-family:var(--mono);font-size:11px;color:var(--info)}
+.auth-switch{text-align:center;font-size:12.5px;color:var(--text-3);margin-top:16px}
+.auth-switch button{background:none;border:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;padding:0}
+.auth-spinner{
+  width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.35);
+  border-top-color:#0a0c11;animation:spin 700ms linear infinite;flex:none;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.profile-btn{cursor:pointer}
+.profile-menu{
+  position:absolute;top:calc(100% + 10px);right:0;min-width:190px;
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--radius);
+  box-shadow:var(--shadow-2);padding:8px;z-index:70;
+}
+.profile-menu[hidden]{display:none}
+.profile-menu-who{padding:8px 10px 10px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.profile-menu-name{font-size:12.5px;font-weight:650}
+.profile-menu-email{font-size:11px;color:var(--text-3);margin-top:1px;word-break:break-all}
+.profile-menu button.menu-item{
+  width:100%;text-align:left;background:transparent;border:1px solid transparent;color:var(--text);
+  padding:8px 10px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;transition:background var(--t);
+}
+.profile-menu button.menu-item:hover{background:var(--surface-2)}
+.profile-menu button.menu-item.danger{color:var(--danger)}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width:1180px){
+  .perf-grid{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:820px){
+  .shell{padding:0 14px 64px}
+  .topbar-inner{padding:9px 14px;gap:10px}
+  .brand-sub,.today-chip{display:none}
+  .profile-name,.profile-role{display:none}
+  .profile{padding:3px}
+  .welcome{padding:20px 0 14px}
+  .welcome h1{font-size:21px}
+  .row-2,.row-3{grid-template-columns:1fr}
+  .kanban{grid-auto-columns:minmax(224px,86%)}
+  .perf-stats{grid-template-columns:1fr 1fr}
+}
+@media (max-width:520px){
+  .kpi-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .kpi-value{font-size:24px}
+  .drawer{width:100vw}
+  .toasts{left:14px;right:14px;bottom:14px;max-width:none}
+  .auth-card{padding:24px 18px 20px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to dashboard content</a>
+
+<!-- ============================================================
+     AUTH SCREEN
+     [AUTH] Simulated sign-in / account creation for the prototype.
+     No control here lets a signed-in person choose someone else's
+     editor account — see the JS AUTH block for what a real
+     integration replaces this with.
+     ============================================================ -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-mark" aria-hidden="true">FF</div>
+      <div>
+        <div class="auth-brand-name">Frame &amp; Fold</div>
+        <div class="auth-brand-sub">Production pipeline · Editor workspace</div>
+      </div>
+    </div>
+
+    <h1 class="auth-heading" id="authHeading">Sign in to your workspace</h1>
+    <p class="auth-lede" id="authLede">Access the projects assigned to you. Nothing here is shared with other editors.</p>
+
+    <button type="button" class="oauth-btn" id="oauthGoogleBtn" data-provider="Google">
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.51h6.47a5.5 5.5 0 0 1-2.4 3.63v3h3.86c2.26-2.09 3.56-5.17 3.56-8.87z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.86l-3.86-3c-1.08.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.27 14.33A7.2 7.2 0 0 1 4.89 12c0-.81.14-1.6.38-2.33V6.58H1.29A12 12 0 0 0 0 12c0 1.94.46 3.77 1.29 5.42z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.94 1.19 15.24 0 12 0A12 12 0 0 0 1.29 6.58l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"/></svg>
+      Continue with Google
+    </button>
+    <button type="button" class="oauth-btn" id="oauthGithubBtn" data-provider="GitHub">
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.1 3.3 9.4 7.9 11 .6.1.8-.3.8-.6v-2.1c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.3 1.2a11.4 11.4 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.9 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6 4.6-1.6 7.9-5.9 7.9-11A11.5 11.5 0 0 0 12 .5z"/></svg>
+      Continue with GitHub
+    </button>
+
+    <div class="oauth-divider">or</div>
+
+    <div class="auth-tabs" role="tablist" aria-label="Sign in or create an account">
+      <button type="button" role="tab" id="tabSignIn" aria-selected="true">Sign in</button>
+      <button type="button" role="tab" id="tabCreate" aria-selected="false">Create account</button>
+    </div>
+
+    <form class="auth-form" id="signInForm" novalidate>
+      <div class="field" id="f-si-email">
+        <label for="siEmail">Work email</label>
+        <input type="text" id="siEmail" placeholder="alex.morgan@framefold.co" autocomplete="username" />
+        <p class="err" id="e-si-email"></p>
+      </div>
+      <div class="field" id="f-si-pass">
+        <label for="siPass">Password</label>
+        <input type="password" id="siPass" placeholder="••••••••" autocomplete="current-password" />
+        <p class="err" id="e-si-pass"></p>
+      </div>
+      <button type="submit" class="btn btn-primary" id="siSubmit" style="justify-content:center">Sign in</button>
+      <p class="auth-hint">Demo account — <code>alex.morgan@framefold.co</code> / <code>demo1234</code>. Or use Google / GitHub above.</p>
+    </form>
+
+    <form class="auth-form" id="createForm" novalidate hidden>
+      <div class="field" id="f-cr-name">
+        <label for="crName">Full name</label>
+        <input type="text" id="crName" placeholder="e.g. Jordan Blake" autocomplete="name" />
+        <p class="err" id="e-cr-name"></p>
+      </div>
+      <div class="field" id="f-cr-email">
+        <label for="crEmail">Work email</label>
+        <input type="text" id="crEmail" placeholder="you@studio.co" autocomplete="username" />
+        <p class="err" id="e-cr-email"></p>
+      </div>
+      <div class="field" id="f-cr-pass">
+        <label for="crPass">Password</label>
+        <input type="password" id="crPass" placeholder="At least 8 characters" autocomplete="new-password" />
+        <p class="err" id="e-cr-pass"></p>
+      </div>
+      <button type="submit" class="btn btn-primary" id="crSubmit" style="justify-content:center">Create account</button>
+      <p class="auth-hint">New accounts start with an empty pipeline — projects appear once a producer assigns you a creative brief.</p>
+    </form>
+
+    <p class="auth-switch" id="authSwitch"></p>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP ROOT — hidden until a session exists
+     ============================================================ -->
+<div id="appRoot" hidden>
+
+<!-- ============================================================
+     TOP BAR
+     PRODUCTION NOTE: the profile block is populated from the
+     authenticated session (e.g. NextAuth / Notion OAuth / SSO).
+     There is deliberately NO editor switcher in this view.
+     ============================================================ -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">FF</div>
+      <div>
+        <div class="brand-name">Frame &amp; Fold — Production Pipeline</div>
+        <div class="brand-sub">Editor workspace</div>
+      </div>
+    </div>
+
+    <div class="topbar-spacer"></div>
+
+    <div class="today-chip"><span class="dot-live" aria-hidden="true"></span><span id="todayLabel">—</span></div>
+
+    <div style="position:relative">
+      <button class="icon-btn" id="notifBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="notifPopover" aria-label="Notifications">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 1 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        <span class="badge-count" id="notifCount" hidden>0</span>
+      </button>
+      <div class="popover" id="notifPopover" role="dialog" aria-label="Notifications" hidden>
+        <div class="popover-head">
+          <span class="popover-title">Notifications</span>
+          <span class="section-note" id="notifSummary"></span>
+        </div>
+        <div id="notifList"></div>
+      </div>
+    </div>
+
+    <div style="position:relative">
+      <button class="profile profile-btn" id="profileBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="profileMenu">
+        <span class="avatar" id="avatarInitials" aria-hidden="true">AM</span>
+        <span>
+          <span class="profile-name" id="profileName">—</span><br />
+          <span class="profile-role" id="profileRole">—</span>
+        </span>
+      </button>
+      <div class="profile-menu" id="profileMenu" role="dialog" aria-label="Account" hidden>
+        <div class="profile-menu-who">
+          <div class="profile-menu-name" id="menuName">—</div>
+          <div class="profile-menu-email" id="menuEmail">—</div>
+        </div>
+        <button type="button" class="menu-item danger" id="signOutBtn">Sign out</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="shell" id="main">
+
+  <!-- WELCOME -->
+  <section class="welcome">
+    <div>
+      <h1 id="welcomeTitle">Welcome back</h1>
+      <p class="lede" id="workloadSummary"></p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost" id="resetBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        Reset prototype data
+      </button>
+      <button class="btn btn-primary" id="newBriefBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Create from brief
+      </button>
+    </div>
+  </section>
+
+  <!-- KPIs -->
+  <section aria-labelledby="kpiHeading">
+    <h2 id="kpiHeading" class="sr-only">Key numbers</h2>
+    <div class="kpi-grid" id="kpiGrid"></div>
+  </section>
+
+  <!-- WORK NEXT -->
+  <section class="section" aria-labelledby="wnHeading">
+    <div class="section-head">
+      <h2 class="section-title" id="wnHeading">Work next</h2>
+      <span class="section-note">Ranked by overdue work, then requested revisions, then nearest deadline</span>
+    </div>
+    <div class="card worknext" id="workNext"></div>
+  </section>
+
+  <!-- PIPELINE / TABLE -->
+  <section class="section" aria-labelledby="pipeHeading">
+    <div class="section-head">
+      <h2 class="section-title" id="pipeHeading">My pipeline</h2>
+      <span class="section-note" id="resultCount"></span>
+    </div>
+
+    <div class="toolbar">
+      <div class="segmented" role="group" aria-label="Switch pipeline view">
+        <button type="button" id="viewPipelineBtn" aria-pressed="true">Pipeline</button>
+        <button type="button" id="viewTableBtn" aria-pressed="false">Table</button>
+      </div>
+
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+        <label class="sr-only" for="searchInput">Search projects or clients</label>
+        <input type="search" id="searchInput" placeholder="Search video title, client, or project ID" autocomplete="off" />
+      </div>
+
+      <div class="filter-field">
+        <label for="statusFilter">Status</label>
+        <select id="statusFilter"><option value="all">All statuses</option></select>
+      </div>
+      <div class="filter-field">
+        <label for="priorityFilter">Priority</label>
+        <select id="priorityFilter">
+          <option value="all">All priorities</option>
+          <option value="Urgent">Urgent</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="deadlineFilter">Deadline</label>
+        <select id="deadlineFilter">
+          <option value="all">Any deadline</option>
+          <option value="overdue">Overdue</option>
+          <option value="today">Due today</option>
+          <option value="week">Due this week</option>
+          <option value="month">Due in 30 days</option>
+        </select>
+      </div>
+      <div class="filter-field">
+        <label for="revisionFilter">Revisions</label>
+        <select id="revisionFilter">
+          <option value="all">Any</option>
+          <option value="open">Open revisions</option>
+          <option value="any">Has revision history</option>
+          <option value="none">No revisions</option>
+        </select>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="clearFiltersBtn">Clear filters</button>
+    </div>
+
+    <div id="pipelineView">
+      <div class="kanban" id="kanban"></div>
+    </div>
+
+    <div id="tableView" hidden>
+      <div class="card table-wrap">
+        <table id="projectTable">
+          <caption class="sr-only">Projects assigned to the signed-in editor</caption>
+          <thead>
+            <tr>
+              <th scope="col"><button type="button" data-sort="title">Video title</button></th>
+              <th scope="col"><button type="button" data-sort="client">Client</button></th>
+              <th scope="col"><button type="button" data-sort="status">Status</button></th>
+              <th scope="col"><button type="button" data-sort="due">Due date</button></th>
+              <th scope="col"><button type="button" data-sort="priority">Priority</button></th>
+              <th scope="col"><button type="button" data-sort="revisions">Revisions</button></th>
+              <th scope="col"><button type="button" data-sort="progress">Progress</button></th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div id="tableEmpty"></div>
+    </div>
+  </section>
+
+  <!-- PERFORMANCE -->
+  <section class="section" aria-labelledby="perfHeading">
+    <div class="section-head">
+      <h2 class="section-title" id="perfHeading">My performance</h2>
+      <span class="section-note">Delivered videos over the last 6 months — your data only</span>
+    </div>
+    <div class="perf-grid">
+      <div class="card chart-card">
+        <div class="chart" id="chart" role="img" aria-label="Bar chart of delivered videos per month"></div>
+        <div class="chart-legend">
+          <span class="legend-key"><span class="legend-swatch" style="background:linear-gradient(180deg,#7c8cff,#9d7cff)"></span> Delivered on time</span>
+          <span class="legend-key"><span class="legend-swatch" style="background:#4a5570"></span> Delivered late</span>
+          <span class="legend-key"><span class="legend-swatch" style="background:#3ecf8e"></span> 6-month average</span>
+        </div>
+        <div class="perf-stats" id="perfStats"></div>
+      </div>
+      <div class="card table-wrap">
+        <table>
+          <caption class="sr-only">Monthly delivery summary</caption>
+          <thead>
+            <tr>
+              <th scope="col">Month</th>
+              <th scope="col">Delivered</th>
+              <th scope="col">On time</th>
+              <th scope="col">Avg. revisions</th>
+            </tr>
+          </thead>
+          <tbody id="perfTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <p class="footnote">
+    Prototype build · Sample data only · Visibility in this build is filtered in the browser for demonstration.
+    Real deployments must enforce per-editor access with server-side row-level authorization.
+  </p>
+</main>
+
+</div><!-- /#appRoot -->
+
+<!-- SCRIM + DRAWER -->
+<div class="scrim" id="scrim" hidden></div>
+
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" hidden>
+  <div class="drawer-head">
+    <div style="flex:1;min-width:0">
+      <div class="drawer-title" id="drawerTitle">Project</div>
+      <div class="drawer-sub" id="drawerSub"></div>
+    </div>
+    <button class="icon-btn" id="drawerClose" aria-label="Close project details">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<!-- CREATE-FROM-BRIEF MODAL -->
+<div class="modal" id="briefModal" role="dialog" aria-modal="true" aria-labelledby="briefModalTitle" hidden>
+  <div class="modal-panel">
+    <div class="modal-head">
+      <div style="flex:1">
+        <h2 class="modal-title" id="briefModalTitle" style="font-size:16px">New creative brief</h2>
+        <p class="drawer-sub">A valid brief creates a project in your pipeline at the “Brief received” stage.</p>
+      </div>
+      <button class="icon-btn" id="briefClose" aria-label="Close new brief form">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="briefForm" novalidate>
+      <div class="modal-body">
+        <div class="row-2">
+          <div class="field" id="f-title">
+            <label for="bTitle">Video title *</label>
+            <input type="text" id="bTitle" name="title" placeholder="e.g. Autumn Launch — 45s Hero Cut" autocomplete="off" />
+            <p class="err" id="e-title"></p>
+          </div>
+          <div class="field" id="f-client">
+            <label for="bClient">Client or brand *</label>
+            <input type="text" id="bClient" name="client" placeholder="e.g. Lume Beverages" autocomplete="off" />
+            <p class="err" id="e-client"></p>
+          </div>
+        </div>
+
+        <div class="row-3">
+          <div class="field">
+            <label for="bEditor">Assigned editor</label>
+            <input type="text" id="bEditor" readonly />
+            <p class="hint">Locked to your session. Reassignment is a Creative Director action.</p>
+          </div>
+          <div class="field" id="f-due">
+            <label for="bDueDate">Due date *</label>
+            <input type="date" id="bDueDate" />
+            <p class="err" id="e-due"></p>
+          </div>
+          <div class="field">
+            <label for="bDueTime">Due time</label>
+            <input type="time" id="bDueTime" value="17:00" />
+          </div>
+        </div>
+
+        <div class="row-3">
+          <div class="field">
+            <label for="bPriority">Priority</label>
+            <select id="bPriority">
+              <option>Urgent</option><option>High</option><option selected>Medium</option><option>Low</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="bPlatform">Platform</label>
+            <select id="bPlatform">
+              <option>Instagram Reels</option><option>TikTok</option><option>YouTube</option>
+              <option>Meta Ads</option><option>LinkedIn</option><option>Website / Landing page</option><option>Broadcast</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="bAspect">Aspect ratio</label>
+            <select id="bAspect">
+              <option>9:16</option><option>1:1</option><option>4:5</option><option selected>16:9</option><option>21:9</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field" id="f-deliv">
+          <label for="bDeliverables">Deliverables * <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-3)">(one per line)</span></label>
+          <textarea id="bDeliverables" placeholder="45s hero cut, 16:9 master&#10;15s cutdown, 9:16&#10;Thumbnail frame export"></textarea>
+          <p class="err" id="e-deliv"></p>
+        </div>
+
+        <div class="field" id="f-instr">
+          <label for="bInstructions">Editing instructions *</label>
+          <textarea id="bInstructions" placeholder="Pacing, music direction, brand rules, captions, colour treatment, do-not-use notes…"></textarea>
+          <p class="err" id="e-instr"></p>
+        </div>
+
+        <div class="row-2">
+          <div class="field" id="f-assets">
+            <label for="bAssets">Asset links * <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-3)">(one per line)</span></label>
+            <textarea id="bAssets" placeholder="https://drive.example.com/raw-footage&#10;https://drive.example.com/brand-kit"></textarea>
+            <p class="err" id="e-assets"></p>
+          </div>
+          <div class="field" id="f-refs">
+            <label for="bRefs">Reference links <span style="text-transform:none;letter-spacing:0;font-weight:500;color:var(--text-3)">(optional)</span></label>
+            <textarea id="bRefs" placeholder="https://vimeo.example.com/tone-reference"></textarea>
+            <p class="err" id="e-refs"></p>
+          </div>
+        </div>
+
+        <div class="row-2">
+          <div class="field">
+            <label for="bStage">Starting stage</label>
+            <select id="bStage"></select>
+          </div>
+          <div class="field">
+            <label for="bNotes">Initial revision or context note (optional)</label>
+            <input type="text" id="bNotes" placeholder="e.g. Client wants a punchier first 3 seconds" autocomplete="off" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <span class="section-note">Fields marked * are required.</span>
+        <span style="display:flex;gap:8px">
+          <button type="button" class="btn btn-ghost" id="briefCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create project</button>
+        </span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   0. PRODUCTION INTEGRATION MAP
+   ------------------------------------------------------------
+   [AUTH]        The entire AUTH SCREEN section below (sign-in, create
+                 account, "Continue with Google/GitHub") is a UX
+                 simulation with no real identity provider behind it —
+                 a static file has nowhere safe to hold an OAuth client
+                 secret. Replace it with a real redirect to Google/
+                 GitHub OAuth or a hosted auth service (NextAuth.js,
+                 Auth0, Clerk, Supabase Auth) backed by a server that
+                 verifies the token and sets an http-only session
+                 cookie. SESSION below must then be populated from that
+                 verified server session on every request — the client
+                 must never be the thing that decides which editor it is.
+   [DB]          Replace SEED_PROJECTS with a server query, e.g.
+                 GET /api/projects  ->  SELECT * FROM projects
+                                        WHERE assigned_editor_id = $session.editorId
+   [AUTHZ/RLS]   Enforce the same predicate in the database (Postgres RLS,
+                 Notion data-source permissions, etc.). The filtering done in
+                 this file is presentation logic ONLY and provides no security.
+   [INGEST]      Creative briefs arrive from the brief intake form / Notion
+                 database webhook / producer tool; the server validates and
+                 assigns the editor, then emits a project row.
+   [FILES]       Asset, reference, and delivery links resolve through signed,
+                 time-limited URLs from object storage (S3/R2/Drive).
+   [NOTIFY]      Notifications shown here are derived client-side for the demo.
+                 In production they come from a server-side notification feed.
+   [PERSIST]     localStorage stands in for the API write layer.
+   ============================================================ */
+
+/* ============================================================
+   1. DATA LAYER
+   ============================================================ */
+
+var STORAGE_KEY = "ff.pipeline.prototype.v1";
+var AUTH_SESSION_KEY = "ff.auth.session.v1";
+var AUTH_ACCOUNTS_KEY = "ff.auth.accounts.v1";
+
+/* [AUTH] Populated only after a (simulated) sign-in. No UI exists to
+   switch this to another editor once signed in. */
+var SESSION = null;
+
+/* Roles are part of the model. "creative_director" / "admin" capabilities
+   (reassigning editors, cross-editor reporting) are intentionally NOT
+   rendered anywhere in this editor-scoped view. */
+var PEOPLE = [
+  { id:"ed-001", name:"Alex Morgan",     role:"editor",            title:"Senior Video Editor", email:"alex.morgan@framefold.co" },
+  { id:"ed-002", name:"Priya Raman",     role:"editor",            title:"Video Editor" },
+  { id:"ed-003", name:"Marcus Lee",      role:"editor",            title:"Motion Designer" },
+  { id:"cd-001", name:"Dana Whitfield",  role:"creative_director", title:"Creative Director" },
+  { id:"ad-001", name:"System Admin",    role:"admin",             title:"Workspace Admin" }
+];
+
+var STAGES = [
+  { id:"brief_received",      label:"Brief received",      tone:"tone-slate"  },
+  { id:"assets_ready",        label:"Assets ready",        tone:"tone-info"   },
+  { id:"editing",             label:"Editing",             tone:"tone-violet" },
+  { id:"internal_review",     label:"Internal review",     tone:"tone-warn"   },
+  { id:"client_review",       label:"Client review",       tone:"tone-teal"   },
+  { id:"revisions_requested", label:"Revisions requested", tone:"tone-danger" },
+  { id:"approved",            label:"Approved",            tone:"tone-ok"     },
+  { id:"delivered",           label:"Delivered",           tone:"tone-done"   }
+];
+var PRIORITY_TONE = { Urgent:"tone-danger", High:"tone-warn", Medium:"tone-accent", Low:"tone-slate" };
+var PRIORITY_RANK = { Urgent:0, High:1, Medium:2, Low:3 };
+var CLOSED_STAGES = { approved:true, delivered:true };
+
+/* ---- date helpers used to keep sample data permanently realistic ---- */
+function atDays(offset, hh, mm){
+  var d = new Date();
+  d.setDate(d.getDate() + offset);
+  d.setHours(hh === undefined ? 17 : hh, mm || 0, 0, 0);
+  return d.toISOString();
+}
+function daysAgo(n, hh){ return atDays(-n, hh === undefined ? 15 : hh, 30); }
+function uid(prefix){ return prefix + "-" + Math.random().toString(36).slice(2,8); }
+
+function deliverables(list){
+  return list.map(function(x, i){
+    return { id:"dl" + i + "-" + Math.random().toString(36).slice(2,6), label:x[0], done:!!x[1] };
+  });
+}
+function links(list){ return list.map(function(x){ return { label:x[0], url:x[1] }; }); }
+function revision(note, author, offset, resolved){
+  return { id:uid("rev"), note:note, author:author, createdAt:daysAgo(offset, 11), resolved:!!resolved };
+}
+
+/* ---- Active sample projects for the signed-in editor (ed-001) ---- */
+var ALEX_ACTIVE = [
+  {
+    id:"PRJ-1038", title:"Spring Drop Teaser — 20s", client:"Northline Apparel",
+    editorId:"ed-001", dateAssigned:daysAgo(11), dueAt:atDays(-1, 18, 0),
+    priority:"Urgent", stage:"revisions_requested", version:3,
+    platform:"Instagram Reels", aspect:"9:16", deliveryLink:"",
+    instructions:"Cut to the drum hit at 0:04. Client wants the logo sting held one extra beat and the price card removed entirely. Keep grain treatment from v2.",
+    deliverablesList:deliverables([["20s teaser, 9:16 master",true],["6s bumper cutdown",true],["Caption-burned version",false],["Thumbnail frame export",false]]),
+    assets:links([["Raw footage — Day 1","https://assets.example.com/northline/day1"],["Brand kit + fonts","https://assets.example.com/northline/brandkit"],["Licensed track (cleared)","https://assets.example.com/northline/audio"]]),
+    references:links([["Tone reference cut","https://ref.example.com/northline-tone"]]),
+    revisions:[
+      revision("Trim the intro by half a second — it lands slow on mobile.","Dana Whitfield",6,true),
+      revision("Remove the price card. Legal has not cleared the promo pricing yet.","Client — Northline",2,false),
+      revision("Hold the logo sting one extra beat at the end.","Client — Northline",2,false)
+    ]
+  },
+  {
+    id:"PRJ-1035", title:"Testimonial Bundle — 3 Cuts", client:"Cobalt Health",
+    editorId:"ed-001", dateAssigned:daysAgo(14), dueAt:atDays(0, 18, 0),
+    priority:"Urgent", stage:"revisions_requested", version:2,
+    platform:"LinkedIn", aspect:"1:1", deliveryLink:"",
+    instructions:"Three 60s patient stories. Compliance requires the disclaimer card on-screen for a minimum of three seconds at the tail of every cut.",
+    deliverablesList:deliverables([["Cut A — Renee, 60s",true],["Cut B — Tomas, 60s",true],["Cut C — Aisha, 60s",false],["Subtitle SRT files (x3)",false],["Compliance disclaimer card",false]]),
+    assets:links([["Interview masters","https://assets.example.com/cobalt/interviews"],["Approved disclaimer card","https://assets.example.com/cobalt/disclaimer"]]),
+    references:links([["Last quarter testimonial set","https://ref.example.com/cobalt-q2"]]),
+    revisions:[
+      revision("Disclaimer is under three seconds on Cut A. Extend it.","Compliance review",1,false),
+      revision("Cut B audio dips around 0:38 — please rebalance.","Dana Whitfield",1,false)
+    ]
+  },
+  {
+    id:"PRJ-1042", title:"Hydration Reset — 30s Hero Ad", client:"Lume Beverages",
+    editorId:"ed-001", dateAssigned:daysAgo(6), dueAt:atDays(1, 17, 0),
+    priority:"High", stage:"editing", version:1,
+    platform:"Meta Ads", aspect:"4:5", deliveryLink:"",
+    instructions:"Hook in the first 1.5 seconds — pour shot first, product name second. Bright, clean grade. No voiceover; rely on kinetic type.",
+    deliverablesList:deliverables([["30s hero, 4:5",false],["15s cutdown, 9:16",false],["6s bumper",false],["Static end-frame export",true]]),
+    assets:links([["Studio footage — selects","https://assets.example.com/lume/selects"],["Product stills","https://assets.example.com/lume/stills"],["Kinetic type template","https://assets.example.com/lume/type"]]),
+    references:links([["Competitor benchmark reel","https://ref.example.com/lume-benchmark"]]),
+    revisions:[]
+  },
+  {
+    id:"PRJ-1044", title:"Recipe Series — Episode 04", client:"Copper Kettle",
+    editorId:"ed-001", dateAssigned:daysAgo(9), dueAt:atDays(2, 12, 0),
+    priority:"High", stage:"editing", version:2,
+    platform:"YouTube", aspect:"16:9", deliveryLink:"",
+    instructions:"Match the pacing of Episode 03. Overhead shots lead each step. Keep the ambient kitchen audio bed under the music.",
+    deliverablesList:deliverables([["Full episode, 8–10 min",false],["60s vertical trailer",false],["Chapter markers document",true]]),
+    assets:links([["Multicam rushes","https://assets.example.com/kettle/ep04"],["Series music bed","https://assets.example.com/kettle/music"]]),
+    references:links([["Episode 03 final","https://ref.example.com/kettle-ep03"]]),
+    revisions:[ revision("Step three needs the overhead angle, not the side angle.","Dana Whitfield",3,true) ]
+  },
+  {
+    id:"PRJ-1047", title:"App Onboarding Walkthrough", client:"Cobalt Health",
+    editorId:"ed-001", dateAssigned:daysAgo(8), dueAt:atDays(3, 16, 0),
+    priority:"High", stage:"internal_review", version:1,
+    platform:"Website / Landing page", aspect:"16:9", deliveryLink:"",
+    instructions:"Screen capture driven. Every UI callout must animate in after the cursor lands, never before. Neutral, calm music.",
+    deliverablesList:deliverables([["90s walkthrough master",true],["Silent looping version",true],["Callout overlay pack",false]]),
+    assets:links([["Screen recordings","https://assets.example.com/cobalt/screens"],["UI callout kit","https://assets.example.com/cobalt/callouts"]]),
+    references:links([]),
+    revisions:[]
+  },
+  {
+    id:"PRJ-1029", title:"Q3 Case Study — Retail Rollout", client:"Meridian Logistics",
+    editorId:"ed-001", dateAssigned:daysAgo(19), dueAt:atDays(5, 17, 0),
+    priority:"Low", stage:"client_review", version:2,
+    platform:"LinkedIn", aspect:"16:9", deliveryLink:"",
+    instructions:"Data-led narrative. Numbers animate on beat. Keep the warehouse B-roll under three seconds per shot.",
+    deliverablesList:deliverables([["3min case study",true],["45s summary cut",true],["Animated stat pack",true],["Closed captions",false]]),
+    assets:links([["Site B-roll","https://assets.example.com/meridian/broll"],["Verified stat sheet","https://assets.example.com/meridian/stats"]]),
+    references:links([["Q2 case study","https://ref.example.com/meridian-q2"]]),
+    revisions:[ revision("Swap the 18% figure for the audited 21% number.","Client — Meridian",4,true) ]
+  },
+  {
+    id:"PRJ-1026", title:"Brand Anthem — Director's Cut", client:"Verdant Labs",
+    editorId:"ed-001", dateAssigned:daysAgo(24), dueAt:atDays(6, 15, 0),
+    priority:"Medium", stage:"approved", version:4,
+    platform:"YouTube", aspect:"21:9", deliveryLink:"",
+    instructions:"Cinematic grade, 21:9 letterbox. Final mix delivered by the audio team — do not re-level.",
+    deliverablesList:deliverables([["2min anthem, 21:9",true],["60s broadcast cut",true],["Social teaser, 9:16",true],["Archive project package",true]]),
+    assets:links([["Graded masters","https://assets.example.com/verdant/graded"],["Final audio mix","https://assets.example.com/verdant/mix"]]),
+    references:links([["Director treatment","https://ref.example.com/verdant-treatment"]]),
+    revisions:[ revision("Extend the final hold by 12 frames before the logo.","Dana Whitfield",8,true) ]
+  },
+  {
+    id:"PRJ-1051", title:"Founder Story — Long Form", client:"Verdant Labs",
+    editorId:"ed-001", dateAssigned:daysAgo(4), dueAt:atDays(9, 17, 0),
+    priority:"Medium", stage:"assets_ready", version:1,
+    platform:"YouTube", aspect:"16:9", deliveryLink:"",
+    instructions:"Interview-led, 6–8 minutes. Build the paper edit from the transcript before touching the timeline. Archive stills get a subtle Ken Burns move.",
+    deliverablesList:deliverables([["Paper edit from transcript",true],["Rough assembly",false],["Fine cut",false],["Vertical highlight, 60s",false]]),
+    assets:links([["Interview footage","https://assets.example.com/verdant/founder"],["Archive stills","https://assets.example.com/verdant/archive"],["Transcript","https://assets.example.com/verdant/transcript"]]),
+    references:links([["Documentary tone board","https://ref.example.com/verdant-tone"]]),
+    revisions:[]
+  },
+  {
+    id:"PRJ-1055", title:"Trade Show Sizzle Loop", client:"Atlas Robotics",
+    editorId:"ed-001", dateAssigned:daysAgo(1), dueAt:atDays(12, 17, 0),
+    priority:"Medium", stage:"brief_received", version:1,
+    platform:"Broadcast", aspect:"16:9", deliveryLink:"",
+    instructions:"Silent 3-minute booth loop for a 4K wall. No captions, no voiceover, seamless loop point. Bold motion, high contrast.",
+    deliverablesList:deliverables([["3min seamless loop, 4K",false],["Loop point QC pass",false]]),
+    assets:links([["Robotics line footage","https://assets.example.com/atlas/line"]]),
+    references:links([["Last year's booth loop","https://ref.example.com/atlas-2025"]]),
+    revisions:[]
+  }
+];
+
+/* ---- Delivered history for the signed-in editor (drives the chart) ----
+   [title, client, daysAgoDelivered, revisionCount, deliveredOnTime]        */
+var ALEX_HISTORY_RAW = [
+  ["Autumn Range Launch — 30s","Northline Apparel",2,1,true],
+  ["Clinic Tour Walkthrough","Cobalt Health",5,0,true],
+  ["Cold Brew Product Loop","Copper Kettle",9,2,false],
+  ["Warehouse Safety Explainer","Meridian Logistics",13,1,true],
+  ["Founder Q&A — Short 01","Verdant Labs",17,0,true],
+  ["Assembly Line Highlight","Atlas Robotics",21,1,true],
+  ["Summer Sale Bumper Pack","Northline Apparel",26,2,true],
+  ["Patient Journey Animation","Cobalt Health",31,3,false],
+  ["Recipe Series — Episode 03","Copper Kettle",36,1,true],
+  ["Route Optimisation Explainer","Meridian Logistics",42,0,true],
+  ["Lab Process Micro-doc","Verdant Labs",48,2,true],
+  ["Recruitment Reel — Engineering","Atlas Robotics",54,1,true],
+  ["Store Opening Recap","Northline Apparel",61,0,true],
+  ["Telehealth Feature Teaser","Cobalt Health",68,1,false],
+  ["Recipe Series — Episode 02","Copper Kettle",75,2,true],
+  ["Fleet Electrification Story","Meridian Logistics",83,1,true],
+  ["Sustainability Report Motion","Verdant Labs",91,0,true],
+  ["Investor Update — Q1","Atlas Robotics",98,2,true],
+  ["Lookbook Motion Cuts","Northline Apparel",106,1,true],
+  ["Onboarding Explainer v1","Cobalt Health",115,0,true],
+  ["Recipe Series — Episode 01","Copper Kettle",124,3,false],
+  ["Depot Network Overview","Meridian Logistics",134,1,true],
+  ["Science Team Profile","Verdant Labs",145,0,true],
+  ["Robotics Expo Recap","Atlas Robotics",158,2,true]
+];
+
+function buildHistoryProject(row, index){
+  var title = row[0], client = row[1], ago = row[2], revs = row[3], onTime = row[4];
+  var revList = [];
+  for(var r = 0; r < revs; r++){
+    revList.push(revision("Resolved during delivery: adjustment pass " + (r + 1) + ".", "Dana Whitfield", ago + 1, true));
+  }
+  return {
+    id:"PRJ-" + (900 + index),
+    title:title, client:client, editorId:"ed-001",
+    dateAssigned:daysAgo(ago + 14), dueAt:atDays(-(onTime ? ago - 1 : ago + 2), 17, 0),
+    deliveredAt:daysAgo(ago, 14), deliveredOnTime:onTime,
+    priority:"Medium", stage:"delivered", version:1 + revs,
+    platform:"YouTube", aspect:"16:9",
+    deliveryLink:"https://delivery.example.com/" + title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""),
+    instructions:"Archived brief. Delivered and signed off by the Creative Director.",
+    deliverablesList:deliverables([["Master file",true],["Social cutdown",true],["Captions",true]]),
+    assets:links([["Archived source bundle","https://assets.example.com/archive/" + (900 + index)]]),
+    references:links([]),
+    revisions:revList
+  };
+}
+
+/* ---- Other editors' work. [AUTHZ] In production these rows would never
+   reach the browser at all; they exist here only to prove the filter. ---- */
+var OTHER_EDITORS_PROJECTS = [
+  {
+    id:"PRJ-1040", title:"Winter Campaign — Broadcast Cut", client:"Halden Motors",
+    editorId:"ed-002", dateAssigned:daysAgo(7), dueAt:atDays(2,17,0), priority:"Urgent",
+    stage:"editing", version:1, platform:"Broadcast", aspect:"16:9", deliveryLink:"",
+    instructions:"Confidential to Priya Raman.", deliverablesList:deliverables([["60s broadcast master",false]]),
+    assets:links([]), references:links([]), revisions:[]
+  },
+  {
+    id:"PRJ-1041", title:"Loyalty App Promo", client:"Bramble Coffee",
+    editorId:"ed-002", dateAssigned:daysAgo(12), dueAt:atDays(-3,17,0), priority:"High",
+    stage:"revisions_requested", version:2, platform:"TikTok", aspect:"9:16", deliveryLink:"",
+    instructions:"Confidential to Priya Raman.", deliverablesList:deliverables([["30s promo",false]]),
+    assets:links([]), references:links([]), revisions:[ revision("Confidential note.","Client",1,false) ]
+  },
+  {
+    id:"PRJ-1043", title:"Title Sequence Refresh", client:"Public Radio Collective",
+    editorId:"ed-003", dateAssigned:daysAgo(20), dueAt:atDays(4,17,0), priority:"Medium",
+    stage:"internal_review", version:3, platform:"YouTube", aspect:"16:9", deliveryLink:"",
+    instructions:"Confidential to Marcus Lee.", deliverablesList:deliverables([["Title sequence",true]]),
+    assets:links([]), references:links([]), revisions:[]
+  },
+  {
+    id:"PRJ-0991", title:"Annual Report Motion Piece", client:"Halden Motors",
+    editorId:"ed-003", dateAssigned:daysAgo(60), dueAt:daysAgo(30,17), deliveredAt:daysAgo(29,14),
+    deliveredOnTime:true, priority:"Medium", stage:"delivered", version:2,
+    platform:"YouTube", aspect:"16:9", deliveryLink:"https://delivery.example.com/halden-annual",
+    instructions:"Confidential to Marcus Lee.", deliverablesList:deliverables([["Master",true]]),
+    assets:links([]), references:links([]), revisions:[]
+  }
+];
+
+function buildSeed(){
+  var seed = ALEX_ACTIVE.slice();
+  ALEX_HISTORY_RAW.forEach(function(row, i){ seed.push(buildHistoryProject(row, i)); });
+  return seed.concat(OTHER_EDITORS_PROJECTS);
+}
+
+/* ============================================================
+   1B. AUTH (prototype simulation — see [AUTH] note above)
+   ------------------------------------------------------------
+   Everything in this block runs entirely in the browser and is only
+   good enough to demo the sign-in / create-account UX. Passwords are
+   kept in localStorage in the clear, which is fine for a throwaway
+   prototype and NOT acceptable anywhere real credentials could ever
+   land. A production build deletes this block entirely.
+   ============================================================ */
+
+var DEMO_ACCOUNT = { email:"alex.morgan@framefold.co", password:"demo1234", editorId:"ed-001" };
+
+function loadAccounts(){
+  try{
+    var raw = localStorage.getItem(AUTH_ACCOUNTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+function saveAccounts(list){
+  try{ localStorage.setItem(AUTH_ACCOUNTS_KEY, JSON.stringify(list)); }catch(e){ /* ignore in prototype */ }
+}
+/* Accounts created through "Create account" are merged into the people
+   directory so me() / renderIdentity() resolve them like any other editor. */
+function hydrateAccountsIntoPeople(){
+  loadAccounts().forEach(function(acc){
+    if(!PEOPLE.some(function(p){ return p.id === acc.editorId; })){
+      PEOPLE.push({ id:acc.editorId, name:acc.name, role:"editor", title:"Video Editor", email:acc.email });
+    }
+  });
+}
+
+function getSession(){
+  try{
+    var raw = localStorage.getItem(AUTH_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function persistSession(editorId){
+  SESSION = { editorId:editorId, role:"editor" };
+  try{ localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(SESSION)); }catch(e){ /* ignore */ }
+}
+function clearSession(){
+  SESSION = null;
+  try{ localStorage.removeItem(AUTH_SESSION_KEY); }catch(e){ /* ignore */ }
+}
+
+/* [AUTH] Real OAuth would redirect to the provider and come back with a
+   verified, server-issued token. Here we just simulate the round trip
+   with a short delay and land on this workspace's one demo account. */
+function signInWithProvider(provider, onDone){
+  setTimeout(function(){
+    persistSession(DEMO_ACCOUNT.editorId);
+    toast("ok","Signed in", "Connected via " + provider + " as " + me().name + ".");
+    onDone(true);
+  }, 650);
+}
+
+function signInWithPassword(email, password){
+  email = String(email || "").trim().toLowerCase();
+  if(email === DEMO_ACCOUNT.email && password === DEMO_ACCOUNT.password){
+    persistSession(DEMO_ACCOUNT.editorId);
+    return { ok:true };
+  }
+  var accounts = loadAccounts();
+  for(var i = 0; i < accounts.length; i++){
+    if(accounts[i].email === email){
+      if(accounts[i].password !== password) return { ok:false, message:"Incorrect password for that account." };
+      persistSession(accounts[i].editorId);
+      return { ok:true };
+    }
+  }
+  return { ok:false, message:"No account found for that email. Create one below." };
+}
+
+function createAccount(name, email, password){
+  email = String(email || "").trim().toLowerCase();
+  if(email === DEMO_ACCOUNT.email || loadAccounts().some(function(a){ return a.email === email; })){
+    return { ok:false, message:"An account with that email already exists. Sign in instead." };
+  }
+  var accounts = loadAccounts();
+  var editorId = "ed-" + Math.random().toString(36).slice(2,8);
+  var account = { editorId:editorId, name:name, email:email, password:password };
+  accounts.push(account);
+  saveAccounts(accounts);
+  PEOPLE.push({ id:editorId, name:name, role:"editor", title:"Video Editor", email:email });
+  persistSession(editorId);
+  return { ok:true };
+}
+
+/* ============================================================
+   2. STATE
+   ============================================================ */
+
+var state = {
+  projects: [],          /* stands in for the server dataset */
+  view: "pipeline",
+  search: "",
+  status: "all",
+  priority: "all",
+  deadline: "all",
+  revisions: "all",
+  sortKey: "due",
+  sortDir: 1,
+  openProjectId: null,
+  lastFocused: null
+};
+
+function load(){
+  /* [PERSIST] Replace with: await fetch("/api/projects") */
+  try{
+    var raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      var parsed = JSON.parse(raw);
+      if(parsed && Array.isArray(parsed.projects) && parsed.projects.length){
+        state.projects = parsed.projects;
+        return;
+      }
+    }
+  }catch(e){ /* corrupted storage falls through to a clean seed */ }
+  state.projects = buildSeed();
+  save();
+}
+function save(){
+  /* [PERSIST] Replace with authenticated PATCH/POST calls. */
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ savedAt:new Date().toISOString(), projects:state.projects }));
+  }catch(e){
+    toast("err","Could not save","Local storage is unavailable in this browser session.");
+  }
+}
+
+/* ============================================================
+   3. PRIVACY BOUNDARY
+   ------------------------------------------------------------
+   [AUTHZ] Every read path in the UI goes through myProjects().
+   THIS IS NOT SECURITY. It hides rows in the DOM only. Real access
+   control belongs in the API and in database row-level policies.
+   ============================================================ */
+function myProjects(){
+  return state.projects.filter(function(p){ return p.editorId === SESSION.editorId; });
+}
+function findProject(id){
+  var list = myProjects();
+  for(var i = 0; i < list.length; i++){ if(list[i].id === id) return list[i]; }
+  return null; /* Requesting another editor's id returns nothing. */
+}
+function me(){
+  for(var i = 0; i < PEOPLE.length; i++){ if(PEOPLE[i].id === SESSION.editorId) return PEOPLE[i]; }
+  return { id:SESSION.editorId, name:"Unknown editor", role:"editor", title:"Editor" };
+}
+
+/* ============================================================
+   4. UTILITIES — escaping, dates, derived values
+   ============================================================ */
+
+function esc(value){
+  return String(value === null || value === undefined ? "" : value)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+/* Only http(s) links are ever rendered as anchors. */
+function safeUrl(url){
+  var s = String(url || "").trim();
+  if(/^https?:\/\/[^\s]+$/i.test(s)) return s;
+  return "";
+}
+function stageMeta(id){
+  for(var i = 0; i < STAGES.length; i++){ if(STAGES[i].id === id) return STAGES[i]; }
+  return STAGES[0];
+}
+function stageIndex(id){
+  for(var i = 0; i < STAGES.length; i++){ if(STAGES[i].id === id) return i; }
+  return 0;
+}
+function startOfToday(){ var d = new Date(); d.setHours(0,0,0,0); return d; }
+function daysUntil(iso){
+  var due = new Date(iso); due.setHours(0,0,0,0);
+  return Math.round((due - startOfToday()) / 86400000);
+}
+function isClosed(p){ return !!CLOSED_STAGES[p.stage]; }
+function isOverdue(p){ return !isClosed(p) && new Date(p.dueAt) < new Date(); }
+function isDueSoon(p){ var d = daysUntil(p.dueAt); return !isClosed(p) && !isOverdue(p) && d <= 2; }
+function openRevisions(p){
+  return (p.revisions || []).filter(function(r){ return !r.resolved; }).length;
+}
+function hasOpenRevisions(p){ return openRevisions(p) > 0; }
+function progressOf(p){
+  if(p.stage === "delivered") return 100;
+  var stagePart = stageIndex(p.stage) / (STAGES.length - 1) * 70;
+  var list = p.deliverablesList || [];
+  var doneRatio = list.length ? list.filter(function(d){ return d.done; }).length / list.length : 0;
+  return Math.min(99, Math.round(stagePart + doneRatio * 30));
+}
+function fmtDate(iso){
+  return new Date(iso).toLocaleDateString(undefined,{ month:"short", day:"numeric" });
+}
+function fmtDateTime(iso){
+  return new Date(iso).toLocaleString(undefined,{ month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
+}
+function fmtFullDate(iso){
+  return new Date(iso).toLocaleDateString(undefined,{ weekday:"short", month:"long", day:"numeric", year:"numeric" });
+}
+function dueLabel(p){
+  if(p.stage === "delivered") return { cls:"due-done", text:"Delivered " + fmtDate(p.deliveredAt || p.dueAt) };
+  var d = daysUntil(p.dueAt);
+  if(isOverdue(p)) return { cls:"due-overdue", text:(d === 0 ? "Overdue today" : Math.abs(d) + "d overdue") };
+  if(d === 0) return { cls:"due-soon", text:"Due today · " + new Date(p.dueAt).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}) };
+  if(d === 1) return { cls:"due-soon", text:"Due tomorrow" };
+  if(d <= 3)  return { cls:"due-soon", text:"Due in " + d + " days" };
+  return { cls:"due-ok", text:fmtDate(p.dueAt) };
+}
+function urgencyClass(p){
+  if(isOverdue(p)) return "is-overdue";
+  if(hasOpenRevisions(p)) return "is-revision";
+  if(isDueSoon(p)) return "is-soon";
+  return "";
+}
+
+/* ============================================================
+   5. FILTERING + SORTING
+   ============================================================ */
+
+function matchesSearch(p, q){
+  if(!q) return true;
+  var hay = (p.title + " " + p.client + " " + p.id + " " + (p.platform || "")).toLowerCase();
+  return hay.indexOf(q) !== -1;
+}
+function matchesDeadline(p, mode){
+  if(mode === "all") return true;
+  if(mode === "overdue") return isOverdue(p);
+  var d = daysUntil(p.dueAt);
+  if(mode === "today") return !isClosed(p) && d === 0;
+  if(mode === "week")  return !isClosed(p) && d >= 0 && d <= 7;
+  if(mode === "month") return !isClosed(p) && d >= 0 && d <= 30;
+  return true;
+}
+function matchesRevisions(p, mode){
+  var total = (p.revisions || []).length;
+  if(mode === "all") return true;
+  if(mode === "open") return openRevisions(p) > 0;
+  if(mode === "any")  return total > 0;
+  if(mode === "none") return total === 0;
+  return true;
+}
+/* Search and all four filters compose with AND. */
+function filteredProjects(){
+  var q = state.search.trim().toLowerCase();
+  return myProjects().filter(function(p){
+    return matchesSearch(p, q)
+      && (state.status === "all" || p.stage === state.status)
+      && (state.priority === "all" || p.priority === state.priority)
+      && matchesDeadline(p, state.deadline)
+      && matchesRevisions(p, state.revisions);
+  });
+}
+function sortProjects(list){
+  var key = state.sortKey, dir = state.sortDir;
+  return list.slice().sort(function(a,b){
+    var av, bv;
+    if(key === "title"){ av = a.title.toLowerCase(); bv = b.title.toLowerCase(); }
+    else if(key === "client"){ av = a.client.toLowerCase(); bv = b.client.toLowerCase(); }
+    else if(key === "status"){ av = stageIndex(a.stage); bv = stageIndex(b.stage); }
+    else if(key === "priority"){ av = PRIORITY_RANK[a.priority]; bv = PRIORITY_RANK[b.priority]; }
+    else if(key === "revisions"){ av = (a.revisions||[]).length; bv = (b.revisions||[]).length; }
+    else if(key === "progress"){ av = progressOf(a); bv = progressOf(b); }
+    else { av = new Date(a.dueAt).getTime(); bv = new Date(b.dueAt).getTime(); }
+    if(av < bv) return -1 * dir;
+    if(av > bv) return 1 * dir;
+    return 0;
+  });
+}
+/* Ranking for "Work next": overdue, then open revisions, then nearest due. */
+function workNextList(){
+  return myProjects()
+    .filter(function(p){ return !isClosed(p) || hasOpenRevisions(p); })
+    .map(function(p){
+      var score = 0;
+      if(isOverdue(p)) score -= 10000;
+      if(hasOpenRevisions(p)) score -= 4000;
+      if(isDueSoon(p)) score -= 1500;
+      score += PRIORITY_RANK[p.priority] * 120;
+      score += Math.max(-30, Math.min(90, daysUntil(p.dueAt))) * 20;
+      return { p:p, score:score };
+    })
+    .sort(function(a,b){ return a.score - b.score; })
+    .slice(0,5)
+    .map(function(x){ return x.p; });
+}
+
+/* ============================================================
+   6. METRICS
+   ============================================================ */
+
+function metrics(){
+  var mine = myProjects();
+  var active = mine.filter(function(p){ return !isClosed(p); });
+  var dueThisWeek = active.filter(function(p){ var d = daysUntil(p.dueAt); return d >= 0 && d <= 7; });
+  var overdue = active.filter(isOverdue);
+  var revisionProjects = mine.filter(hasOpenRevisions);
+  var openRevCount = mine.reduce(function(sum,p){ return sum + openRevisions(p); },0);
+
+  var now = new Date();
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  var prevStart = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  var delivered = mine.filter(function(p){ return p.stage === "delivered" && p.deliveredAt; });
+  var thisMonth = delivered.filter(function(p){ return new Date(p.deliveredAt) >= monthStart; });
+  var lastMonth = delivered.filter(function(p){
+    var d = new Date(p.deliveredAt); return d >= prevStart && d < monthStart;
+  });
+
+  return {
+    mineCount:mine.length,
+    active:active.length,
+    dueThisWeek:dueThisWeek.length,
+    overdue:overdue.length,
+    revisionProjects:revisionProjects.length,
+    openRevCount:openRevCount,
+    completedThisMonth:thisMonth.length,
+    completedLastMonth:lastMonth.length,
+    deliveredAll:delivered
+  };
+}
+
+function monthlyBuckets(){
+  var delivered = myProjects().filter(function(p){ return p.stage === "delivered" && p.deliveredAt; });
+  var now = new Date();
+  var buckets = [];
+  for(var i = 5; i >= 0; i--){
+    var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buckets.push({
+      key:d.getFullYear() + "-" + d.getMonth(),
+      label:d.toLocaleDateString(undefined,{ month:"short" }),
+      full:d.toLocaleDateString(undefined,{ month:"long", year:"numeric" }),
+      total:0, onTime:0, revisions:0
+    });
+  }
+  delivered.forEach(function(p){
+    var d = new Date(p.deliveredAt);
+    var key = d.getFullYear() + "-" + d.getMonth();
+    for(var i = 0; i < buckets.length; i++){
+      if(buckets[i].key === key){
+        buckets[i].total++;
+        if(p.deliveredOnTime !== false) buckets[i].onTime++;
+        buckets[i].revisions += (p.revisions || []).length;
+        break;
+      }
+    }
+  });
+  return buckets;
+}
+
+/* ============================================================
+   7. RENDERING
+   ============================================================ */
+
+var $ = function(id){ return document.getElementById(id); };
+
+function pill(tone, text){
+  return '<span class="pill ' + tone + '"><span class="pdot" aria-hidden="true"></span>' + esc(text) + '</span>';
+}
+function progressBar(value){
+  var cls = value >= 100 ? "p-ok" : (value < 35 ? "p-warn" : "");
+  return '<span class="progress-row">' +
+    '<span class="progress ' + cls + '" style="flex:1"><i style="width:' + value + '%"></i></span>' +
+    '<span class="progress-val">' + value + '%</span></span>';
+}
+
+function renderIdentity(){
+  var user = me();
+  var initials = user.name.split(" ").map(function(w){ return w.charAt(0); }).join("").slice(0,2).toUpperCase();
+  $("avatarInitials").textContent = initials;
+  $("profileName").textContent = user.name;
+  $("profileRole").textContent = user.title;
+  $("menuName").textContent = user.name;
+  $("menuEmail").textContent = user.email || "";
+  $("todayLabel").textContent = fmtFullDate(new Date().toISOString());
+  $("welcomeTitle").textContent = greeting() + ", " + user.name.split(" ")[0];
+  $("bEditor").value = user.name + "  (" + user.id + ")";
+}
+function greeting(){
+  var h = new Date().getHours();
+  if(h < 12) return "Good morning";
+  if(h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function renderSummary(){
+  var m = metrics();
+  var parts = [];
+  if(m.active === 0){
+    parts.push("You have <strong>no active projects</strong> right now.");
+  }else{
+    parts.push("You have <strong>" + m.active + " active project" + (m.active === 1 ? "" : "s") + "</strong>");
+    parts.push(m.dueThisWeek + " due in the next 7 days");
+    if(m.overdue > 0) parts.push("<strong>" + m.overdue + " overdue</strong>");
+    if(m.openRevCount > 0) parts.push(m.openRevCount + " open revision note" + (m.openRevCount === 1 ? "" : "s") + " across " + m.revisionProjects + " project" + (m.revisionProjects === 1 ? "" : "s"));
+  }
+  parts.push(m.completedThisMonth + " video" + (m.completedThisMonth === 1 ? "" : "s") + " delivered this month");
+  $("workloadSummary").innerHTML = parts.join(" · ") + ".";
+}
+
+function renderKpis(){
+  var m = metrics();
+  var diff = m.completedThisMonth - m.completedLastMonth;
+  var trend = diff === 0
+    ? "Level with last month"
+    : (diff > 0 ? '<span class="up">+' + diff + '</span> vs last month' : '<span class="down">' + diff + '</span> vs last month');
+
+  var cards = [
+    { cls:"", label:"Active projects", value:m.active,
+      sub:m.mineCount + " total assigned to you" },
+    { cls:m.overdue > 0 ? "kpi-danger" : "kpi-warn", label:"Due this week", value:m.dueThisWeek,
+      sub:m.overdue > 0 ? "<strong style=\"color:var(--danger)\">" + m.overdue + " already overdue</strong>" : "Nothing overdue" },
+    { cls:m.openRevCount > 0 ? "kpi-danger" : "", label:"Revisions waiting", value:m.openRevCount,
+      sub:m.revisionProjects + " project" + (m.revisionProjects === 1 ? "" : "s") + " affected" },
+    { cls:"kpi-ok", label:"Videos completed this month", value:m.completedThisMonth, sub:trend }
+  ];
+
+  $("kpiGrid").innerHTML = cards.map(function(c){
+    return '<article class="card kpi ' + c.cls + '">' +
+      '<div class="kpi-label">' + esc(c.label) + '</div>' +
+      '<div class="kpi-value">' + c.value + '</div>' +
+      '<div class="kpi-sub">' + c.sub + '</div></article>';
+  }).join("");
+}
+
+function renderWorkNext(){
+  var list = workNextList();
+  var el = $("workNext");
+  if(!list.length){
+    el.innerHTML = '<p class="worknext-empty">Nothing is waiting on you. Every assigned project is delivered or approved.</p>';
+    return;
+  }
+  el.innerHTML = list.map(function(p, i){
+    var d = dueLabel(p);
+    var reason = isOverdue(p) ? pill("tone-danger","Overdue")
+      : hasOpenRevisions(p) ? pill("tone-violet", openRevisions(p) + " revision" + (openRevisions(p) === 1 ? "" : "s"))
+      : isDueSoon(p) ? pill("tone-warn","Due soon")
+      : pill(stageMeta(p.stage).tone, stageMeta(p.stage).label);
+    return '<button type="button" class="wn-row" data-open="' + esc(p.id) + '">' +
+      '<span class="wn-rank">' + (i+1) + '</span>' +
+      '<span><span class="wn-title">' + esc(p.title) + '</span>' +
+      '<span class="wn-meta">' + esc(p.client) + ' · ' + esc(p.id) + ' · ' + esc(stageMeta(p.stage).label) + '</span></span>' +
+      '<span class="wn-right">' + reason +
+      '<span class="due ' + d.cls + '">' + esc(d.text) + '</span></span></button>';
+  }).join("");
+}
+
+function renderKanban(){
+  var list = filteredProjects();
+  $("kanban").innerHTML = STAGES.map(function(stage){
+    var items = list.filter(function(p){ return p.stage === stage.id; });
+    var body = items.length
+      ? items.map(function(p){
+          var d = dueLabel(p);
+          var revs = openRevisions(p);
+          return '<button type="button" class="kcard ' + urgencyClass(p) + '" data-open="' + esc(p.id) + '">' +
+            '<span class="kcard-client">' + esc(p.client) + '</span>' +
+            '<span class="kcard-title">' + esc(p.title) + '</span>' +
+            '<span class="kcard-foot">' + pill(PRIORITY_TONE[p.priority], p.priority) +
+            '<span class="due ' + d.cls + '">' + esc(d.text) + '</span></span>' +
+            (revs ? '<span>' + pill("tone-violet", revs + " open revision" + (revs === 1 ? "" : "s")) + '</span>' : "") +
+            '<span class="progress ' + (progressOf(p) >= 100 ? "p-ok" : "") + '"><i style="width:' + progressOf(p) + '%"></i></span>' +
+            '</button>';
+        }).join("")
+      : '<div class="kcol-empty">Nothing here</div>';
+
+    return '<section class="kcol" aria-label="' + esc(stage.label) + ' column">' +
+      '<header class="kcol-head">' +
+        '<span class="pill ' + stage.tone + '" style="padding:2px 6px"><span class="pdot" aria-hidden="true"></span></span>' +
+        '<span class="kcol-title">' + esc(stage.label) + '</span>' +
+        '<span class="kcol-count">' + items.length + '</span>' +
+      '</header>' +
+      '<div class="kcol-body">' + body + '</div>' +
+    '</section>';
+  }).join("");
+}
+
+function emptyStateHtml(){
+  var mine = myProjects();
+  if(!mine.length){
+    return '<div class="card empty-state">' +
+      '<div class="empty-emoji" aria-hidden="true">\uD83C\uDFAC</div>' +
+      '<p class="empty-title">No projects assigned to you yet</p>' +
+      '<p class="empty-body">A project appears here the moment a creative brief is added and assigned to you. ' +
+      'You can also start one yourself with <strong>Create from brief</strong>.</p>' +
+      '<p style="margin-top:16px"><button type="button" class="btn btn-primary" data-action="open-brief">Create from brief</button></p>' +
+    '</div>';
+  }
+  return '<div class="card empty-state">' +
+    '<div class="empty-emoji" aria-hidden="true">\uD83D\uDD0E</div>' +
+    '<p class="empty-title">No projects match these filters</p>' +
+    '<p class="empty-body">You have ' + mine.length + ' assigned project' + (mine.length === 1 ? "" : "s") + '. ' +
+    'Try a different search term or clear the filters.</p>' +
+    '<p style="margin-top:16px"><button type="button" class="btn" data-action="clear-filters">Clear filters</button></p>' +
+  '</div>';
+}
+
+function renderTable(){
+  var rows = sortProjects(filteredProjects());
+  var body = $("tableBody");
+  var emptyHost = $("tableEmpty");
+
+  if(!rows.length){
+    body.innerHTML = "";
+    $("projectTable").parentNode.hidden = true;
+    emptyHost.innerHTML = emptyStateHtml();
+    return;
+  }
+  $("projectTable").parentNode.hidden = false;
+  emptyHost.innerHTML = "";
+
+  body.innerHTML = rows.map(function(p){
+    var d = dueLabel(p);
+    var total = (p.revisions || []).length;
+    var open = openRevisions(p);
+    var revCls = open > 0 ? "rev-chip open" : (total > 0 ? "rev-chip has" : "rev-chip");
+    var revText = open > 0 ? open + " / " + total : String(total);
+    return '<tr tabindex="0" data-open="' + esc(p.id) + '">' +
+      '<td><div class="cell-title">' + esc(p.title) + '</div>' +
+        '<div class="cell-sub">' + esc(p.id) + ' · v' + esc(p.version) + ' · ' + esc(p.platform) + ' ' + esc(p.aspect) + '</div></td>' +
+      '<td>' + esc(p.client) + '</td>' +
+      '<td>' + pill(stageMeta(p.stage).tone, stageMeta(p.stage).label) + '</td>' +
+      '<td><div class="due ' + d.cls + '">' + esc(d.text) + '</div>' +
+        '<div class="cell-sub">' + esc(fmtDateTime(p.dueAt)) + '</div></td>' +
+      '<td>' + pill(PRIORITY_TONE[p.priority], p.priority) + '</td>' +
+      '<td><span class="' + revCls + '" title="' + (open > 0 ? esc(open + " open of " + total) : esc(total + " total")) + '">' + esc(revText) + '</span></td>' +
+      '<td>' + progressBar(progressOf(p)) + '</td>' +
+    '</tr>';
+  }).join("");
+}
+
+function renderResultCount(){
+  var shown = filteredProjects().length;
+  var mine = myProjects().length;
+  $("resultCount").textContent = shown === mine
+    ? shown + " project" + (shown === 1 ? "" : "s") + " assigned to you"
+    : "Showing " + shown + " of " + mine + " of your projects";
+}
+
+/* ---- Native SVG chart. No chart library. ---- */
+function renderChart(){
+  var buckets = monthlyBuckets();
+  var max = Math.max(1, buckets.reduce(function(m,b){ return Math.max(m, b.total); }, 0));
+  var yTop = Math.ceil(max / 2) * 2;
+  if(yTop < 2) yTop = 2;
+
+  var W = 560, H = 240, padL = 34, padR = 12, padT = 14, padB = 34;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+  var slot = plotW / buckets.length;
+  var barW = Math.min(46, slot * 0.52);
+
+  var totalDelivered = buckets.reduce(function(s,b){ return s + b.total; }, 0);
+  var avg = totalDelivered / buckets.length;
+  var avgY = padT + plotH - (avg / yTop) * plotH;
+
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="presentation">' +
+    '<defs><linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="#9d7cff"/><stop offset="100%" stop-color="#7c8cff"/>' +
+    '</linearGradient></defs>';
+
+  /* gridlines + y axis */
+  var steps = 4;
+  for(var g = 0; g <= steps; g++){
+    var val = Math.round(yTop / steps * g);
+    var y = padT + plotH - (val / yTop) * plotH;
+    svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (W - padR) + '" y2="' + y + '" stroke="#232936" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 8) + '" y="' + (y + 4) + '" text-anchor="end" font-size="10" fill="#6d768a">' + val + '</text>';
+  }
+
+  /* bars: late portion stacked under the on-time portion */
+  buckets.forEach(function(b, i){
+    var cx = padL + slot * i + slot / 2;
+    var x = cx - barW / 2;
+    var hTotal = (b.total / yTop) * plotH;
+    var late = b.total - b.onTime;
+    var hLate = (late / yTop) * plotH;
+    var hOn = hTotal - hLate;
+    var yTotal = padT + plotH - hTotal;
+
+    if(hLate > 0){
+      svg += '<rect class="bar" x="' + x + '" y="' + (padT + plotH - hLate) + '" width="' + barW + '" height="' + hLate + '" rx="3" fill="#4a5570"></rect>';
+    }
+    if(hOn > 0){
+      svg += '<rect class="bar" x="' + x + '" y="' + yTotal + '" width="' + barW + '" height="' + hOn + '" rx="3" fill="url(#barGrad)">' +
+        '<title>' + esc(b.full + ": " + b.total + " delivered, " + b.onTime + " on time") + '</title></rect>';
+    }
+    if(b.total === 0){
+      svg += '<rect x="' + x + '" y="' + (padT + plotH - 3) + '" width="' + barW + '" height="3" rx="1.5" fill="#232936"><title>' + esc(b.full + ": none delivered") + '</title></rect>';
+    }else{
+      svg += '<text x="' + cx + '" y="' + (yTotal - 6) + '" text-anchor="middle" font-size="11" font-weight="700" fill="#eef1f7">' + b.total + '</text>';
+    }
+    svg += '<text x="' + cx + '" y="' + (H - 12) + '" text-anchor="middle" font-size="11" fill="#a5aec1">' + esc(b.label) + '</text>';
+  });
+
+  /* average line */
+  svg += '<line x1="' + padL + '" y1="' + avgY + '" x2="' + (W - padR) + '" y2="' + avgY + '" stroke="#3ecf8e" stroke-width="1.5" stroke-dasharray="5 4"/>';
+  svg += '<text x="' + (W - padR) + '" y="' + (avgY - 6) + '" text-anchor="end" font-size="10" fill="#3ecf8e">avg ' + avg.toFixed(1) + '</text>';
+  svg += '</svg>';
+
+  $("chart").innerHTML = svg;
+  $("chart").setAttribute("aria-label",
+    "Delivered videos per month for the last six months: " +
+    buckets.map(function(b){ return b.full + ", " + b.total; }).join("; "));
+
+  /* summary stats */
+  var onTimeTotal = buckets.reduce(function(s,b){ return s + b.onTime; }, 0);
+  var revTotal = buckets.reduce(function(s,b){ return s + b.revisions; }, 0);
+  var best = buckets.slice().sort(function(a,b){ return b.total - a.total; })[0];
+  var onTimePct = totalDelivered ? Math.round(onTimeTotal / totalDelivered * 100) : 0;
+
+  $("perfStats").innerHTML =
+    '<div class="stat"><div class="stat-label">Delivered (6 months)</div><div class="stat-value">' + totalDelivered + '</div></div>' +
+    '<div class="stat"><div class="stat-label">On-time rate</div><div class="stat-value">' + onTimePct + '%</div></div>' +
+    '<div class="stat"><div class="stat-label">Avg. revisions / video</div><div class="stat-value">' + (totalDelivered ? (revTotal / totalDelivered).toFixed(1) : "0.0") + '</div></div>' +
+    '<div class="stat"><div class="stat-label">Strongest month</div><div class="stat-value" style="font-size:15px">' + esc(best ? best.full : "—") + '</div></div>';
+
+  $("perfTableBody").innerHTML = buckets.slice().reverse().map(function(b){
+    var pct = b.total ? Math.round(b.onTime / b.total * 100) + "%" : "—";
+    var avgRev = b.total ? (b.revisions / b.total).toFixed(1) : "—";
+    return '<tr><td>' + esc(b.full) + '</td><td><strong>' + b.total + '</strong></td><td>' + pct + '</td><td>' + avgRev + '</td></tr>';
+  }).join("");
+}
+
+/* [NOTIFY] Derived locally for the prototype; a real build subscribes to a
+   server-side feed already scoped to this editor. */
+function renderNotifications(){
+  var mine = myProjects();
+  var items = [];
+
+  mine.filter(isOverdue).forEach(function(p){
+    items.push({ tone:"tone-danger", icon:"⚠", id:p.id,
+      title:"Overdue: " + p.title, meta:p.client + " · was due " + fmtDateTime(p.dueAt), rank:0 });
+  });
+  mine.filter(hasOpenRevisions).forEach(function(p){
+    var n = openRevisions(p);
+    items.push({ tone:"tone-violet", icon:"↺", id:p.id,
+      title:n + " revision" + (n === 1 ? "" : "s") + " waiting on " + p.title, meta:p.client + " · v" + p.version, rank:1 });
+  });
+  mine.filter(function(p){ return isDueSoon(p); }).forEach(function(p){
+    items.push({ tone:"tone-warn", icon:"⏱", id:p.id,
+      title:"Due soon: " + p.title, meta:p.client + " · " + fmtDateTime(p.dueAt), rank:2 });
+  });
+
+  items.sort(function(a,b){ return a.rank - b.rank; });
+
+  var badge = $("notifCount");
+  badge.textContent = items.length > 9 ? "9+" : String(items.length);
+  badge.hidden = items.length === 0;
+  $("notifSummary").textContent = items.length ? items.length + " need attention" : "All clear";
+
+  $("notifList").innerHTML = items.length
+    ? items.map(function(n){
+        return '<button type="button" class="notif" data-open="' + esc(n.id) + '">' +
+          '<span class="notif-icon pill ' + n.tone + '">' + n.icon + '</span>' +
+          '<span><span class="notif-title">' + esc(n.title) + '</span><br>' +
+          '<span class="notif-meta">' + esc(n.meta) + '</span></span></button>';
+      }).join("")
+    : '<p class="notif-meta" style="padding:10px">Nothing urgent. No overdue work, no open revisions, nothing due in the next two days.</p>';
+}
+
+function renderAll(){
+  renderSummary();
+  renderKpis();
+  renderWorkNext();
+  renderKanban();
+  renderTable();
+  renderResultCount();
+  renderChart();
+  renderNotifications();
+  if(state.openProjectId) renderDrawer();
+}
+
+/* ============================================================
+   8. PROJECT DETAIL DRAWER
+   ============================================================ */
+
+function linkRows(list, type){
+  if(!list || !list.length) return '<p class="notif-meta">None supplied in the brief.</p>';
+  return '<div class="linklist">' + list.map(function(l){
+    var href = safeUrl(l.url);
+    var label = esc(l.label || l.url);
+    /* [FILES] In production these resolve to signed, expiring storage URLs. */
+    return '<div class="linkrow"><span class="ltype">' + esc(type) + '</span>' +
+      (href
+        ? '<a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + label + '</a>'
+        : '<span>' + label + ' (link unavailable)</span>') +
+      '</div>';
+  }).join("") + '</div>';
+}
+
+function renderDrawer(){
+  var p = findProject(state.openProjectId);
+  /* [AUTHZ] findProject is scoped to the session editor. An id belonging to
+     another editor resolves to null and the drawer simply closes. */
+  if(!p){ closeDrawer(); return; }
+
+  var d = dueLabel(p);
+  var open = openRevisions(p);
+  var doneCount = (p.deliverablesList || []).filter(function(x){ return x.done; }).length;
+
+  $("drawerTitle").textContent = p.title;
+  $("drawerSub").textContent = p.client + "  ·  " + p.id + "  ·  v" + p.version;
+
+  var html = "";
+
+  /* status + urgency banner */
+  html += '<div class="dblock">' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">' +
+      pill(stageMeta(p.stage).tone, stageMeta(p.stage).label) +
+      pill(PRIORITY_TONE[p.priority], p.priority + " priority") +
+      (isOverdue(p) ? pill("tone-danger","Overdue") : (isDueSoon(p) ? pill("tone-warn","Due soon") : "")) +
+      (open ? pill("tone-violet", open + " open revision" + (open === 1 ? "" : "s")) : "") +
+    '</div>' +
+    '<div class="field">' +
+      '<label for="stageSelect">Pipeline stage</label>' +
+      '<select id="stageSelect" data-action="stage">' +
+        STAGES.map(function(s){
+          return '<option value="' + s.id + '"' + (s.id === p.stage ? ' selected' : '') + '>' + esc(s.label) + '</option>';
+        }).join("") +
+      '</select>' +
+      '<p class="hint">Changing the stage updates your KPIs, pipeline, table, and performance data.</p>' +
+    '</div>' +
+    '<div style="margin-top:12px">' + progressBar(progressOf(p)) + '</div>' +
+  '</div>';
+
+  /* creative brief — source of truth */
+  html += '<div class="dblock">' +
+    '<h3>Creative brief</h3>' +
+    '<dl class="kv">' +
+      '<dt>Project ID</dt><dd>' + esc(p.id) + '</dd>' +
+      '<dt>Client / brand</dt><dd>' + esc(p.client) + '</dd>' +
+      '<dt>Assigned editor</dt><dd>' + esc(me().name) + ' (' + esc(p.editorId) + ')</dd>' +
+      '<dt>Date assigned</dt><dd>' + esc(fmtFullDate(p.dateAssigned)) + '</dd>' +
+      '<dt>Due</dt><dd><span class="due ' + d.cls + '">' + esc(fmtDateTime(p.dueAt)) + ' · ' + esc(d.text) + '</span></dd>' +
+      '<dt>Platform</dt><dd>' + esc(p.platform) + ' · ' + esc(p.aspect) + '</dd>' +
+      '<dt>Version</dt><dd>v' + esc(p.version) + '</dd>' +
+    '</dl>' +
+    '<h3 style="margin-top:14px">Editing instructions</h3>' +
+    '<p class="rev-note">' + esc(p.instructions) + '</p>' +
+  '</div>';
+
+  /* deliverables */
+  html += '<div class="dblock">' +
+    '<h3>Deliverables · ' + doneCount + ' of ' + (p.deliverablesList || []).length + ' done</h3>' +
+    ((p.deliverablesList || []).length
+      ? (p.deliverablesList).map(function(item){
+          return '<label class="check">' +
+            '<input type="checkbox" data-action="deliverable" data-id="' + esc(item.id) + '"' + (item.done ? ' checked' : '') + ' />' +
+            '<span>' + esc(item.label) + '</span></label>';
+        }).join("")
+      : '<p class="notif-meta">No deliverables listed on this brief.</p>') +
+  '</div>';
+
+  /* assets + references */
+  html += '<div class="dblock">' +
+    '<h3>Assets</h3>' + linkRows(p.assets, "asset") +
+    '<h3 style="margin-top:14px">References</h3>' + linkRows(p.references, "ref") +
+  '</div>';
+
+  /* revision history */
+  html += '<div class="dblock">' +
+    '<h3>Revision history · ' + open + ' open of ' + (p.revisions || []).length + '</h3>' +
+    ((p.revisions || []).length
+      ? '<div style="display:flex;flex-direction:column;gap:8px">' + p.revisions.slice().reverse().map(function(r){
+          return '<div class="rev-item' + (r.resolved ? ' done' : '') + '">' +
+            '<span class="rev-body">' +
+              '<span class="rev-note">' + esc(r.note) + '</span>' +
+              '<span class="rev-meta">' + esc(r.author) + ' · ' + esc(fmtDateTime(r.createdAt)) + ' · ' + (r.resolved ? "resolved" : "open") + '</span>' +
+            '</span>' +
+            (r.resolved
+              ? '<span class="pill tone-ok"><span class="pdot"></span>Done</span>'
+              : '<button type="button" class="btn btn-sm" data-action="resolve" data-id="' + esc(r.id) + '">Mark complete</button>') +
+          '</div>';
+        }).join("") + '</div>'
+      : '<p class="notif-meta">No revisions requested yet.</p>') +
+    '<form class="inline-form" id="revForm" style="margin-top:12px" novalidate>' +
+      '<div class="field"><label for="revInput">Add a revision note</label>' +
+      '<input type="text" id="revInput" placeholder="What needs to change?" autocomplete="off" /></div>' +
+      '<button type="submit" class="btn">Add note</button>' +
+    '</form>' +
+    '<p class="err" id="revErr"></p>' +
+  '</div>';
+
+  /* final delivery link */
+  html += '<div class="dblock">' +
+    '<h3>Final delivery link</h3>' +
+    '<form class="inline-form" id="deliveryForm" novalidate>' +
+      '<div class="field"><label for="deliveryInput">Delivery URL</label>' +
+      '<input type="url" id="deliveryInput" value="' + esc(p.deliveryLink || "") + '" placeholder="https://delivery.example.com/final-cut" /></div>' +
+      '<button type="submit" class="btn btn-primary">Save link</button>' +
+    '</form>' +
+    '<p class="err" id="deliveryErr"></p>' +
+    (safeUrl(p.deliveryLink)
+      ? '<p style="margin-top:10px"><a href="' + esc(safeUrl(p.deliveryLink)) + '" target="_blank" rel="noopener noreferrer">Open the delivered file</a></p>'
+      : '<p class="hint" style="margin-top:10px">No delivery link recorded yet.</p>') +
+  '</div>';
+
+  $("drawerBody").innerHTML = html;
+}
+
+function openDrawer(id){
+  var p = findProject(id);
+  if(!p){ toast("err","Not available","That project is not assigned to you."); return; }
+  state.lastFocused = document.activeElement;
+  state.openProjectId = id;
+  $("scrim").hidden = false;
+  $("drawer").hidden = false;
+  renderDrawer();
+  requestAnimationFrame(function(){
+    $("scrim").classList.add("show");
+    $("drawer").classList.add("show");
+    $("drawerClose").focus();
+  });
+}
+function closeDrawer(){
+  state.openProjectId = null;
+  $("drawer").classList.remove("show");
+  $("scrim").classList.remove("show");
+  setTimeout(function(){
+    $("drawer").hidden = true;
+    if($("briefModal").hidden) $("scrim").hidden = true;
+  }, 200);
+  if(state.lastFocused && state.lastFocused.focus) state.lastFocused.focus();
+}
+
+/* ============================================================
+   9. TOASTS
+   ============================================================ */
+function toast(kind, title, body){
+  var el = document.createElement("div");
+  el.className = "toast " + (kind || "info");
+  el.innerHTML = '<span><strong>' + esc(title) + '</strong><span>' + esc(body || "") + '</span></span>';
+  $("toasts").appendChild(el);
+  setTimeout(function(){
+    el.style.opacity = "0";
+    el.style.transform = "translateY(6px)";
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 220);
+  }, 4200);
+}
+
+/* ============================================================
+   10. MUTATIONS  ([DB] each of these maps to one API write)
+   ============================================================ */
+
+function commit(){ save(); renderAll(); }
+
+function setStage(id, stageId){
+  var p = findProject(id);
+  if(!p) return;
+  var previous = p.stage;
+  p.stage = stageId;
+
+  if(stageId === "delivered"){
+    p.deliveredAt = new Date().toISOString();
+    p.deliveredOnTime = new Date(p.deliveredAt) <= new Date(p.dueAt);
+    (p.deliverablesList || []).forEach(function(x){ x.done = true; });
+  }else{
+    delete p.deliveredAt;
+    delete p.deliveredOnTime;
+  }
+  /* Moving into revisions bumps the working version, mirroring real practice. */
+  if(stageId === "revisions_requested" && previous !== "revisions_requested"){
+    p.version = (p.version || 1) + 1;
+  }
+  commit();
+  toast("ok","Stage updated", p.title + " is now at “" + stageMeta(stageId).label + "”.");
+}
+
+function toggleDeliverable(projectId, deliverableId, checked){
+  var p = findProject(projectId);
+  if(!p) return;
+  (p.deliverablesList || []).forEach(function(x){ if(x.id === deliverableId) x.done = checked; });
+  commit();
+}
+
+function addRevision(projectId, note){
+  var p = findProject(projectId);
+  if(!p) return;
+  p.revisions = p.revisions || [];
+  p.revisions.push({
+    id:uid("rev"), note:note, author:me().name + " (self-logged)",
+    createdAt:new Date().toISOString(), resolved:false
+  });
+  if(p.stage !== "revisions_requested" && !isClosed(p)) p.stage = "revisions_requested";
+  commit();
+  toast("ok","Revision note added", "Logged against " + p.title + ".");
+}
+
+function resolveRevision(projectId, revisionId){
+  var p = findProject(projectId);
+  if(!p) return;
+  (p.revisions || []).forEach(function(r){ if(r.id === revisionId) r.resolved = true; });
+  if(!hasOpenRevisions(p) && p.stage === "revisions_requested") p.stage = "internal_review";
+  commit();
+  toast("ok","Revision closed", openRevisions(p) === 0
+    ? "All revisions on " + p.title + " are complete."
+    : openRevisions(p) + " still open on " + p.title + ".");
+}
+
+function setDeliveryLink(projectId, url){
+  var p = findProject(projectId);
+  if(!p) return;
+  p.deliveryLink = url;
+  commit();
+  toast("ok","Delivery link saved", url ? "Link attached to " + p.title + "." : "Link cleared.");
+}
+
+function nextProjectId(){
+  var max = 1000;
+  state.projects.forEach(function(p){
+    var n = parseInt(String(p.id).replace(/[^0-9]/g,""), 10);
+    if(!isNaN(n) && n > max) max = n;
+  });
+  return "PRJ-" + (max + 1);
+}
+
+/* [INGEST] A real build receives briefs from the intake form or a Notion
+   database webhook; the server assigns the editor and creates the row. */
+function createProjectFromBrief(brief){
+  var project = {
+    id:nextProjectId(),
+    title:brief.title,
+    client:brief.client,
+    editorId:SESSION.editorId,      /* never taken from client input */
+    dateAssigned:new Date().toISOString(),
+    dueAt:brief.dueAt,
+    priority:brief.priority,
+    stage:brief.stage,
+    version:1,
+    platform:brief.platform,
+    aspect:brief.aspect,
+    deliveryLink:"",
+    instructions:brief.instructions,
+    deliverablesList:brief.deliverables.map(function(label, i){
+      return { id:"dl" + i + "-" + Math.random().toString(36).slice(2,6), label:label, done:false };
+    }),
+    assets:brief.assets.map(function(u, i){ return { label:"Asset " + (i + 1), url:u }; }),
+    references:brief.references.map(function(u, i){ return { label:"Reference " + (i + 1), url:u }; }),
+    revisions:brief.note
+      ? [{ id:uid("rev"), note:brief.note, author:"Brief intake", createdAt:new Date().toISOString(), resolved:false }]
+      : []
+  };
+  state.projects.push(project);
+  commit();
+  return project;
+}
+
+function resetData(){
+  state.projects = buildSeed();
+  state.search = ""; state.status = "all"; state.priority = "all";
+  state.deadline = "all"; state.revisions = "all";
+  $("searchInput").value = "";
+  $("statusFilter").value = "all";
+  $("priorityFilter").value = "all";
+  $("deadlineFilter").value = "all";
+  $("revisionFilter").value = "all";
+  closeDrawer();
+  commit();
+  toast("info","Prototype reset","Sample data restored to its original state.");
+}
+
+/* ============================================================
+   11. VALIDATION — creative brief form
+   ============================================================ */
+
+function setFieldError(fieldId, errId, message){
+  var field = $(fieldId), err = $(errId);
+  if(message){ field.classList.add("invalid"); err.textContent = message; }
+  else { field.classList.remove("invalid"); err.textContent = ""; }
+  return !message;
+}
+function splitLines(value){
+  return String(value || "").split(/\r?\n/).map(function(s){ return s.trim(); }).filter(Boolean);
+}
+
+function validateBrief(){
+  var ok = true;
+  var title = $("bTitle").value.trim();
+  var client = $("bClient").value.trim();
+  var dueDate = $("bDueDate").value;
+  var dueTime = $("bDueTime").value || "17:00";
+  var deliverables = splitLines($("bDeliverables").value);
+  var instructions = $("bInstructions").value.trim();
+  var assets = splitLines($("bAssets").value);
+  var references = splitLines($("bRefs").value);
+
+  ok = setFieldError("f-title","e-title",
+    title.length < 3 ? "Give the video a title of at least 3 characters." : "") && ok;
+  ok = setFieldError("f-client","e-client",
+    client.length < 2 ? "Which client or brand is this for?" : "") && ok;
+
+  var dueErr = "";
+  if(!dueDate){
+    dueErr = "A due date is required — the pipeline sorts by deadline.";
+  }else{
+    var due = new Date(dueDate + "T" + dueTime);
+    if(isNaN(due.getTime())) dueErr = "That date could not be read.";
+    else if(due < new Date()) dueErr = "The deadline is in the past. Pick a future date and time.";
+  }
+  ok = setFieldError("f-due","e-due", dueErr) && ok;
+
+  ok = setFieldError("f-deliv","e-deliv",
+    deliverables.length === 0 ? "List at least one deliverable, one per line." : "") && ok;
+  ok = setFieldError("f-instr","e-instr",
+    instructions.length < 10 ? "Add editing instructions so the brief is actionable." : "") && ok;
+
+  var badAsset = assets.filter(function(u){ return !safeUrl(u); });
+  ok = setFieldError("f-assets","e-assets",
+    assets.length === 0
+      ? "At least one asset link is required."
+      : (badAsset.length ? "These must be full http(s) links: " + badAsset.join(", ") : "")) && ok;
+
+  var badRef = references.filter(function(u){ return !safeUrl(u); });
+  ok = setFieldError("f-refs","e-refs",
+    badRef.length ? "These must be full http(s) links: " + badRef.join(", ") : "") && ok;
+
+  if(!ok) return null;
+
+  return {
+    title:title, client:client,
+    dueAt:new Date(dueDate + "T" + dueTime).toISOString(),
+    priority:$("bPriority").value,
+    platform:$("bPlatform").value,
+    aspect:$("bAspect").value,
+    stage:$("bStage").value,
+    deliverables:deliverables,
+    instructions:instructions,
+    assets:assets,
+    references:references,
+    note:$("bNotes").value.trim()
+  };
+}
+
+function openBriefModal(){
+  state.lastFocused = document.activeElement;
+  $("scrim").hidden = false;
+  $("briefModal").hidden = false;
+  requestAnimationFrame(function(){
+    $("scrim").classList.add("show");
+    $("briefModal").classList.add("show");
+    $("bTitle").focus();
+  });
+}
+function closeBriefModal(){
+  $("briefModal").classList.remove("show");
+  $("scrim").classList.remove("show");
+  setTimeout(function(){
+    $("briefModal").hidden = true;
+    if($("drawer").hidden) $("scrim").hidden = true;
+  }, 180);
+  if(state.lastFocused && state.lastFocused.focus) state.lastFocused.focus();
+}
+
+/* ============================================================
+   12. EVENT HANDLING
+   ============================================================ */
+
+function setView(view){
+  state.view = view;
+  var isPipeline = view === "pipeline";
+  $("pipelineView").hidden = !isPipeline;
+  $("tableView").hidden = isPipeline;
+  $("viewPipelineBtn").setAttribute("aria-pressed", String(isPipeline));
+  $("viewTableBtn").setAttribute("aria-pressed", String(!isPipeline));
+}
+
+function clearFilters(){
+  state.search = ""; state.status = "all"; state.priority = "all";
+  state.deadline = "all"; state.revisions = "all";
+  $("searchInput").value = "";
+  $("statusFilter").value = "all";
+  $("priorityFilter").value = "all";
+  $("deadlineFilter").value = "all";
+  $("revisionFilter").value = "all";
+  renderKanban(); renderTable(); renderResultCount();
+}
+
+function wireEvents(){
+  /* view switch */
+  $("viewPipelineBtn").addEventListener("click", function(){ setView("pipeline"); });
+  $("viewTableBtn").addEventListener("click", function(){ setView("table"); });
+
+  /* search + filters */
+  $("searchInput").addEventListener("input", function(e){
+    state.search = e.target.value;
+    renderKanban(); renderTable(); renderResultCount();
+  });
+  [["statusFilter","status"],["priorityFilter","priority"],["deadlineFilter","deadline"],["revisionFilter","revisions"]]
+    .forEach(function(pair){
+      $(pair[0]).addEventListener("change", function(e){
+        state[pair[1]] = e.target.value;
+        renderKanban(); renderTable(); renderResultCount();
+      });
+    });
+  $("clearFiltersBtn").addEventListener("click", clearFilters);
+
+  /* sortable table headers */
+  Array.prototype.forEach.call(document.querySelectorAll("thead th button[data-sort]"), function(btn){
+    btn.addEventListener("click", function(){
+      var key = btn.getAttribute("data-sort");
+      if(state.sortKey === key) state.sortDir = state.sortDir * -1;
+      else { state.sortKey = key; state.sortDir = 1; }
+      renderTable();
+    });
+  });
+
+  /* open project details from anywhere with data-open */
+  document.addEventListener("click", function(e){
+    var opener = e.target.closest("[data-open]");
+    if(opener){
+      closePopover();
+      openDrawer(opener.getAttribute("data-open"));
+      return;
+    }
+    var action = e.target.closest("[data-action]");
+    if(action && action.getAttribute("data-action") === "open-brief"){ openBriefModal(); return; }
+    if(action && action.getAttribute("data-action") === "clear-filters"){ clearFilters(); return; }
+  });
+
+  /* keyboard: table rows behave like buttons */
+  $("tableBody").addEventListener("keydown", function(e){
+    if(e.key === "Enter" || e.key === " "){
+      var row = e.target.closest("tr[data-open]");
+      if(row){ e.preventDefault(); openDrawer(row.getAttribute("data-open")); }
+    }
+  });
+
+  /* drawer */
+  $("drawerClose").addEventListener("click", closeDrawer);
+  $("scrim").addEventListener("click", function(){
+    if(!$("briefModal").hidden) closeBriefModal();
+    else closeDrawer();
+  });
+
+  $("drawerBody").addEventListener("change", function(e){
+    var t = e.target;
+    if(t.id === "stageSelect"){ setStage(state.openProjectId, t.value); return; }
+    if(t.getAttribute && t.getAttribute("data-action") === "deliverable"){
+      toggleDeliverable(state.openProjectId, t.getAttribute("data-id"), t.checked);
+    }
+  });
+
+  $("drawerBody").addEventListener("click", function(e){
+    var btn = e.target.closest('[data-action="resolve"]');
+    if(btn){ resolveRevision(state.openProjectId, btn.getAttribute("data-id")); }
+  });
+
+  $("drawerBody").addEventListener("submit", function(e){
+    e.preventDefault();
+    if(e.target.id === "revForm"){
+      var input = $("revInput");
+      var note = input.value.trim();
+      if(note.length < 4){
+        $("revErr").textContent = "Describe the change in at least 4 characters.";
+        input.focus();
+        return;
+      }
+      $("revErr").textContent = "";
+      addRevision(state.openProjectId, note);
+      return;
+    }
+    if(e.target.id === "deliveryForm"){
+      var value = $("deliveryInput").value.trim();
+      if(value && !safeUrl(value)){
+        $("deliveryErr").textContent = "Enter a full link starting with http:// or https://";
+        return;
+      }
+      $("deliveryErr").textContent = "";
+      setDeliveryLink(state.openProjectId, value);
+    }
+  });
+
+  /* notifications popover */
+  $("notifBtn").addEventListener("click", function(e){
+    e.stopPropagation();
+    var pop = $("notifPopover");
+    var willOpen = pop.hidden;
+    pop.hidden = !willOpen;
+    $("notifBtn").setAttribute("aria-expanded", String(willOpen));
+  });
+  document.addEventListener("click", function(e){
+    if(!$("notifPopover").hidden && !e.target.closest("#notifPopover") && !e.target.closest("#notifBtn")){
+      closePopover();
+    }
+  });
+
+  /* profile / account menu */
+  $("profileBtn").addEventListener("click", function(e){
+    e.stopPropagation();
+    var menu = $("profileMenu");
+    var willOpen = menu.hidden;
+    menu.hidden = !willOpen;
+    $("profileBtn").setAttribute("aria-expanded", String(willOpen));
+  });
+  document.addEventListener("click", function(e){
+    if(!$("profileMenu").hidden && !e.target.closest("#profileMenu") && !e.target.closest("#profileBtn")){
+      closeProfileMenu();
+    }
+  });
+  $("signOutBtn").addEventListener("click", function(){
+    /* [AUTH] A real build would also invalidate the server-side session. */
+    clearSession();
+    location.reload();
+  });
+
+  /* brief modal */
+  $("newBriefBtn").addEventListener("click", openBriefModal);
+  $("briefClose").addEventListener("click", closeBriefModal);
+  $("briefCancel").addEventListener("click", closeBriefModal);
+  $("briefForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var brief = validateBrief();
+    if(!brief){
+      toast("err","Brief incomplete","Fix the highlighted fields and submit again.");
+      var firstInvalid = document.querySelector("#briefForm .field.invalid input, #briefForm .field.invalid textarea");
+      if(firstInvalid) firstInvalid.focus();
+      return;
+    }
+    var created = createProjectFromBrief(brief);
+    $("briefForm").reset();
+    $("bDueTime").value = "17:00";
+    closeBriefModal();
+    toast("ok","Project created", created.id + " — " + created.title + " is now in your pipeline.");
+    setTimeout(function(){ openDrawer(created.id); }, 220);
+  });
+
+  /* reset */
+  $("resetBtn").addEventListener("click", function(){
+    if(window.confirm("Reset the prototype? Any changes you made will be discarded and the original sample data restored.")){
+      resetData();
+    }
+  });
+
+  /* escape closes the topmost layer */
+  document.addEventListener("keydown", function(e){
+    if(e.key !== "Escape") return;
+    if(!$("notifPopover").hidden){ closePopover(); return; }
+    if(!$("profileMenu").hidden){ closeProfileMenu(); return; }
+    if(!$("briefModal").hidden){ closeBriefModal(); return; }
+    if(!$("drawer").hidden){ closeDrawer(); }
+  });
+}
+
+function closePopover(){
+  $("notifPopover").hidden = true;
+  $("notifBtn").setAttribute("aria-expanded","false");
+}
+function closeProfileMenu(){
+  $("profileMenu").hidden = true;
+  $("profileBtn").setAttribute("aria-expanded","false");
+}
+
+/* ============================================================
+   13. INIT
+   ============================================================ */
+
+function populateSelects(){
+  var statusSelect = $("statusFilter");
+  STAGES.forEach(function(s){
+    var o = document.createElement("option");
+    o.value = s.id; o.textContent = s.label;
+    statusSelect.appendChild(o);
+  });
+  var stageSelect = $("bStage");
+  STAGES.slice(0,3).forEach(function(s, i){
+    var o = document.createElement("option");
+    o.value = s.id; o.textContent = s.label;
+    if(i === 0) o.selected = true;
+    stageSelect.appendChild(o);
+  });
+
+  /* default the new-brief deadline to one week out at 17:00 */
+  var d = new Date();
+  d.setDate(d.getDate() + 7);
+  var iso = d.getFullYear() + "-" +
+    String(d.getMonth() + 1).padStart(2,"0") + "-" +
+    String(d.getDate()).padStart(2,"0");
+  $("bDueDate").value = iso;
+  var today = new Date();
+  $("bDueDate").min = today.getFullYear() + "-" +
+    String(today.getMonth() + 1).padStart(2,"0") + "-" +
+    String(today.getDate()).padStart(2,"0");
+}
+
+/* ============================================================
+   14. AUTH SCREEN WIRING
+   ============================================================ */
+
+function setAuthTab(tab){
+  var isSignIn = tab === "signIn";
+  $("tabSignIn").setAttribute("aria-selected", String(isSignIn));
+  $("tabCreate").setAttribute("aria-selected", String(!isSignIn));
+  $("signInForm").hidden = !isSignIn;
+  $("createForm").hidden = isSignIn;
+  $("authHeading").textContent = isSignIn ? "Sign in to your workspace" : "Create your editor account";
+  $("authLede").textContent = isSignIn
+    ? "Access the projects assigned to you. Nothing here is shared with other editors."
+    : "Set up a new editor account. You'll see projects only once a producer assigns you a brief.";
+  $("authSwitch").innerHTML = isSignIn
+    ? 'New here? <button type="button" id="toCreate">Create an account</button>'
+    : 'Already have an account? <button type="button" id="toSignIn">Sign in</button>';
+  var swap = isSignIn ? $("toCreate") : $("toSignIn");
+  if(swap) swap.addEventListener("click", function(){ setAuthTab(isSignIn ? "create" : "signIn"); });
+}
+
+function isValidEmail(s){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || "").trim()); }
+
+function wireAuthEvents(){
+  $("tabSignIn").addEventListener("click", function(){ setAuthTab("signIn"); });
+  $("tabCreate").addEventListener("click", function(){ setAuthTab("create"); });
+  setAuthTab("signIn");
+
+  function runOAuth(btn, provider){
+    var original = btn.innerHTML;
+    btn.disabled = true;
+    $("oauthGoogleBtn").disabled = true;
+    $("oauthGithubBtn").disabled = true;
+    btn.innerHTML = '<span class="auth-spinner" aria-hidden="true"></span> Connecting to ' + provider + '…';
+    signInWithProvider(provider, function(){ enterApp(); });
+    /* buttons are gone once enterApp() swaps screens; no need to restore state */
+  }
+  $("oauthGoogleBtn").addEventListener("click", function(){ runOAuth($("oauthGoogleBtn"), "Google"); });
+  $("oauthGithubBtn").addEventListener("click", function(){ runOAuth($("oauthGithubBtn"), "GitHub"); });
+
+  $("signInForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var email = $("siEmail").value.trim();
+    var pass = $("siPass").value;
+    var ok = true;
+    ok = setFieldError("f-si-email","e-si-email", isValidEmail(email) ? "" : "Enter a valid email address.") && ok;
+    ok = setFieldError("f-si-pass","e-si-pass", pass ? "" : "Enter your password.") && ok;
+    if(!ok) return;
+    var result = signInWithPassword(email, pass);
+    if(!result.ok){
+      setFieldError("f-si-pass","e-si-pass", result.message);
+      return;
+    }
+    enterApp();
+  });
+
+  $("createForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var name = $("crName").value.trim();
+    var email = $("crEmail").value.trim();
+    var pass = $("crPass").value;
+    var ok = true;
+    ok = setFieldError("f-cr-name","e-cr-name", name.length < 2 ? "Enter your full name." : "") && ok;
+    ok = setFieldError("f-cr-email","e-cr-email", isValidEmail(email) ? "" : "Enter a valid work email.") && ok;
+    ok = setFieldError("f-cr-pass","e-cr-pass", pass.length < 8 ? "Use at least 8 characters." : "") && ok;
+    if(!ok) return;
+    var result = createAccount(name, email, pass);
+    if(!result.ok){
+      setFieldError("f-cr-email","e-cr-email", result.message);
+      return;
+    }
+    enterApp();
+  });
+}
+
+/* ============================================================
+   15. INIT
+   ============================================================ */
+
+function showAuthScreen(){
+  $("authScreen").hidden = false;
+  $("appRoot").hidden = true;
+}
+
+function enterApp(){
+  $("authScreen").hidden = true;
+  $("appRoot").hidden = false;
+  populateSelects();
+  load();
+  renderIdentity();
+  setView("pipeline");
+  renderAll();
+  wireEvents();
+  toast("ok", "Welcome, " + me().name.split(" ")[0], "You're viewing only the projects assigned to you.");
+}
+
+function init(){
+  hydrateAccountsIntoPeople();
+  wireAuthEvents();
+  var existing = getSession();
+  var knownEditor = existing && existing.editorId &&
+    (existing.editorId === DEMO_ACCOUNT.editorId || PEOPLE.some(function(p){ return p.id === existing.editorId; }));
+  if(knownEditor){
+    SESSION = existing;
+    enterApp();
+  }else{
+    clearSession();
+    showAuthScreen();
+  }
+}
+
+init();
+})();
+</script>
+</body>
+</html>
