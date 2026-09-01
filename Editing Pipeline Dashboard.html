@@ -278,8 +278,12 @@ select{appearance:none;padding-right:30px;background-image:linear-gradient(45deg
 .kcard.dragging{opacity:.45;transform:scale(.96) rotate(-1deg);box-shadow:none;cursor:grabbing}
 .kcol-body{transition:background var(--t),box-shadow var(--t);border-radius:var(--radius-sm)}
 .kcol-body.drag-over{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}
-@keyframes kcardIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.kcard{animation:kcardIn 200ms cubic-bezier(.2,.7,.3,1) both}
+@keyframes riseIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.kcard{animation:riseIn 200ms cubic-bezier(.2,.7,.3,1) backwards}
+.kpi{animation:riseIn 220ms cubic-bezier(.2,.7,.3,1) backwards}
+tbody tr{animation:riseIn 180ms cubic-bezier(.2,.7,.3,1) backwards}
+@keyframes barGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.chart .bar{transform-box:fill-box;transform-origin:50% 100%;animation:barGrow 420ms cubic-bezier(.2,.7,.3,1) backwards}
 .kcard-client{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:650}
 .kcard-title{font-size:13px;font-weight:600;line-height:1.35}
 .kcard-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -510,7 +514,7 @@ tbody tr:last-child td{border-bottom:0}
   .auth-card{padding:24px 18px 20px}
 }
 @media (prefers-reduced-motion:reduce){
-  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important;animation-delay:0ms !important}
 }
 </style>
 </head>
@@ -1348,8 +1352,8 @@ function renderKpis(){
     { cls:"kpi-ok", label:"Videos completed this month", value:m.completedThisMonth, sub:trend }
   ];
 
-  $("kpiGrid").innerHTML = cards.map(function(c){
-    return '<article class="card kpi ' + c.cls + '">' +
+  $("kpiGrid").innerHTML = cards.map(function(c, i){
+    return '<article class="card kpi ' + c.cls + '" style="animation-delay:' + (i*30) + 'ms">' +
       '<div class="kpi-label">' + esc(c.label) + '</div>' +
       '<div class="kpi-value">' + c.value + '</div>' +
       '<div class="kpi-sub">' + c.sub + '</div></article>';
@@ -1383,10 +1387,10 @@ function renderKanban(){
   $("kanban").innerHTML = STAGES.map(function(stage){
     var items = list.filter(function(p){ return p.stage === stage.id; });
     var body = items.length
-      ? items.map(function(p){
+      ? items.map(function(p, i){
           var d = dueLabel(p);
           var revs = openRevisions(p);
-          return '<button type="button" class="kcard ' + urgencyClass(p) + '" data-open="' + esc(p.id) + '" draggable="true" data-drag-id="' + esc(p.id) + '">' +
+          return '<button type="button" class="kcard ' + urgencyClass(p) + '" data-open="' + esc(p.id) + '" draggable="true" data-drag-id="' + esc(p.id) + '" style="animation-delay:' + Math.min(i*18,150) + 'ms">' +
             '<span class="kcard-client">' + esc(p.client) + '</span>' +
             '<span class="kcard-title">' + esc(p.title) + '</span>' +
             '<span class="kcard-foot">' + pill(PRIORITY_TONE[p.priority], p.priority) +
@@ -1442,13 +1446,13 @@ function renderTable(){
   $("projectTable").parentNode.hidden = false;
   emptyHost.innerHTML = "";
 
-  body.innerHTML = rows.map(function(p){
+  body.innerHTML = rows.map(function(p, i){
     var d = dueLabel(p);
     var total = (p.revisions || []).length;
     var open = openRevisions(p);
     var revCls = open > 0 ? "rev-chip open" : (total > 0 ? "rev-chip has" : "rev-chip");
     var revText = open > 0 ? open + " / " + total : String(total);
-    return '<tr tabindex="0" data-open="' + esc(p.id) + '">' +
+    return '<tr tabindex="0" data-open="' + esc(p.id) + '" style="animation-delay:' + Math.min(i*15,150) + 'ms">' +
       '<td><div class="cell-title">' + esc(p.title) + '</div>' +
         '<div class="cell-sub">' + esc(p.id) + ' · v' + esc(p.version) + ' · ' + esc(p.platform) + ' ' + esc(p.aspect) + '</div></td>' +
       '<td>' + esc(p.client) + '</td>' +
