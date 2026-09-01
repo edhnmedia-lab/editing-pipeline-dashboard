@@ -289,7 +289,10 @@ if (($_GET['token'] ?? '') !== $cfg['setup_token']) {
 }
 
 $pdo = ff_db();
-$pdo->exec(file_get_contents(__DIR__ . '/schema.sql'));
+$sql = file_get_contents(__DIR__ . '/schema.sql');
+foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
+    $pdo->exec($statement);
+}
 
 $ownerEmail = $cfg['app']['owner_email'];
 $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
@@ -1515,13 +1518,16 @@ function renderUsersTable(){
     var roleCell = (canManage && currentUser.role === "owner")
       ? '<select data-role-for="' + u.id + '"><option value="editor"' + (u.role === "editor" ? " selected" : "") + '>Editor</option><option value="admin"' + (u.role === "admin" ? " selected" : "") + '>Admin</option></select>'
       : esc(u.role);
+    var titleCell = canManage
+      ? '<input type="text" data-title-for="' + u.id + '" value="' + esc(u.title || "") + '" placeholder="e.g. Senior Editor" />'
+      : esc(u.title || "—");
     var actions = canManage
       ? '<button type="button" class="btn btn-ghost" data-remove-user="' + u.id + '">Remove</button>'
       : "";
     return "<tr>" +
       "<td>" + esc(u.email) + "</td>" +
       "<td>" + esc(u.name || "—") + "</td>" +
-      "<td>" + esc(u.title || "—") + "</td>" +
+      "<td>" + titleCell + "</td>" +
       "<td>" + roleCell + "</td>" +
       "<td>" + esc(u.status) + "</td>" +
       "<td>" + actions + "</td>" +
@@ -1536,6 +1542,14 @@ function renderUsersTable(){
         await openUsersModal();
         toast("ok","Role updated","");
       }catch(e){ toast("err","Could not update role", e.message); }
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-title-for]"), function(input){
+    input.addEventListener("change", async function(){
+      try{
+        await apiPost("/api/users/update.php", { id:Number(input.getAttribute("data-title-for")), title:input.value.trim() });
+        toast("ok","Title updated","");
+      }catch(e){ toast("err","Could not update title", e.message); }
     });
   });
   Array.prototype.forEach.call(document.querySelectorAll("[data-remove-user]"), function(btn){
