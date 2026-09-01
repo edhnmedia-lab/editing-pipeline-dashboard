@@ -4,7 +4,7 @@
 
 **Goal:** Move the Frame & Fold editor dashboard from a GitHub-hosted, mock-data prototype to a real app on Hostinger, backed by MySQL, real Google OAuth, invite-only accounts, and an owner/admin/editor role system.
 
-**Architecture:** One Hostinger shared-hosting website (`framefold.com`) serves a static frontend (the existing single-page dashboard, rewired to call a real API) plus a PHP `/api/` backend, both reading/writing one MySQL database. PHP native sessions are the sole source of session/role truth; the client never asserts its own identity.
+**Architecture:** One Hostinger shared-hosting website (`framefold.io`) serves a static frontend (the existing single-page dashboard, rewired to call a real API) plus a PHP `/api/` backend, both reading/writing one MySQL database. PHP native sessions are the sole source of session/role truth; the client never asserts its own identity.
 
 **Tech Stack:** PHP 8.1+ (no Composer dependencies — Google OAuth is done with raw cURL), MySQL (PDO), vanilla JS/HTML/CSS (existing prototype's stack, no framework introduced), Hostinger Business Web Hosting (shared hosting, order id `1009954812`).
 
@@ -28,7 +28,7 @@
 **Files:** None (Hostinger account state only).
 
 **Interfaces:**
-- Produces: a live website on Hostinger for `framefold.com`, and a MySQL database + user, whose connection details (host, db name, db user, db password) are consumed by Task 2's `config.php`.
+- Produces: a live website on Hostinger for `framefold.io`, and a MySQL database + user, whose connection details (host, db name, db user, db password) are consumed by Task 2's `config.php`.
 
 - [ ] **Step 1: Check WHOIS profile exists for claiming the domain**
 
@@ -36,19 +36,19 @@ Call `mcp__plugin_hostinger_hostinger__domains_getWHOISProfileListV1`. If it ret
 
 - [ ] **Step 2: Claim the free domain**
 
-Call `mcp__plugin_hostinger_hostinger__domains_claimFreeDomainV1` with `{"domain": "framefold.com"}`. If it errors with a WHOIS-related code, go back to Step 1. If it errors because the free-domain entitlement is unavailable, stop and report to the user rather than purchasing a paid domain without confirmation.
+Call `mcp__plugin_hostinger_hostinger__domains_claimFreeDomainV1` with `{"domain": "framefold.io"}`. If it errors with a WHOIS-related code, go back to Step 1. If it errors because the free-domain entitlement is unavailable, stop and report to the user rather than purchasing a paid domain without confirmation.
 
 - [ ] **Step 3: Pick a datacenter and create the website**
 
-Call `mcp__plugin_hostinger_hostinger__hosting_listAvailableDatacentersV1` to see options. Pick the one closest to where the team is based (ask the user if it's not obvious). Then call `mcp__plugin_hostinger_hostinger__hosting_createWebsiteV1` with `{"domain": "framefold.com", "order_id": 1009954812, "datacenter_code": "<chosen code>"}`.
+Call `mcp__plugin_hostinger_hostinger__hosting_listAvailableDatacentersV1` to see options. Pick the one closest to where the team is based (ask the user if it's not obvious). Then call `mcp__plugin_hostinger_hostinger__hosting_createWebsiteV1` with `{"domain": "framefold.io", "order_id": 1009954812, "datacenter_code": "<chosen code>"}`.
 
 - [ ] **Step 4: Verify the website exists**
 
-Call `mcp__plugin_hostinger_hostinger__hosting_listWebsitesV1` and confirm a row for `framefold.com` appears (website creation can take a few minutes — poll every 30s if it's not there yet, up to ~5 minutes).
+Call `mcp__plugin_hostinger_hostinger__hosting_listWebsitesV1` and confirm a row for `framefold.io` appears (website creation can take a few minutes — poll every 30s if it's not there yet, up to ~5 minutes).
 
 - [ ] **Step 5: Create the MySQL database**
 
-Generate a strong random password (e.g. 24+ random alphanumeric characters). Call `mcp__plugin_hostinger_hostinger__hosting_createAccountDatabaseV1` with a username, database name (e.g. `ff_app`), db user (e.g. `ff_app_user`), the generated password, and `website_domain: "framefold.com"`.
+Generate a strong random password (e.g. 24+ random alphanumeric characters). Call `mcp__plugin_hostinger_hostinger__hosting_createAccountDatabaseV1` with a username, database name (e.g. `ff_app`), db user (e.g. `ff_app_user`), the generated password, and `website_domain: "framefold.io"`.
 
 - [ ] **Step 6: Record connection details**
 
@@ -85,10 +85,10 @@ return [
     'google' => [
         'client_id' => 'CHANGE_ME.apps.googleusercontent.com',
         'client_secret' => 'CHANGE_ME',
-        'redirect_uri' => 'https://framefold.com/api/auth/google/callback.php',
+        'redirect_uri' => 'https://framefold.io/api/auth/google/callback.php',
     ],
     'app' => [
-        'base_url' => 'https://framefold.com',
+        'base_url' => 'https://framefold.io',
         'owner_email' => 'ethan@edhnmedia.com',
     ],
     'setup_token' => 'CHANGE_ME_TO_A_LONG_RANDOM_STRING',
@@ -318,11 +318,11 @@ Note: this blocks `setup.php` unconditionally, which is intentional for normal o
 
 - [ ] **Step 9: Deploy to Hostinger**
 
-Use the `hostinger:hosting-deploy-static-site` skill to upload the current repo contents (the existing `index.html` plus the new `api/` directory, including the real `api/config.php`) to the `framefold.com` website. PHP files need no build step, so this is a plain file deploy, not a Node/build deploy.
+Use the `hostinger:hosting-deploy-static-site` skill to upload the current repo contents (the existing `index.html` plus the new `api/` directory, including the real `api/config.php`) to the `framefold.io` website. PHP files need no build step, so this is a plain file deploy, not a Node/build deploy.
 
 - [ ] **Step 10: Verify — temporarily allow `setup.php`, run it, then re-block it**
 
-Comment out `setup.php` from the `.htaccess` `FilesMatch` line, redeploy just that one file, then visit `https://framefold.com/api/setup.php?token=<your setup_token>` in a browser. Confirm the response reads `Schema applied. Owner seeded: ethan@edhnmedia.com`. Then put `setup.php` back into the `.htaccess` block list and redeploy `.htaccess` so the endpoint can't be hit again.
+Comment out `setup.php` from the `.htaccess` `FilesMatch` line, redeploy just that one file, then visit `https://framefold.io/api/setup.php?token=<your setup_token>` in a browser. Confirm the response reads `Schema applied. Owner seeded: ethan@edhnmedia.com`. Then put `setup.php` back into the `.htaccess` block list and redeploy `.htaccess` so the endpoint can't be hit again.
 
 - [ ] **Step 11: Commit**
 
@@ -352,7 +352,7 @@ git commit -m "Add MySQL schema, DB/session helpers, and one-time setup script"
 This cannot be done via any available tool — it requires a human to sign into Google Cloud Console. Ask the user to:
 1. Go to Google Cloud Console → APIs & Services → Credentials.
 2. Create an OAuth Client ID (Web application type).
-3. Add authorized redirect URI: `https://framefold.com/api/auth/google/callback.php`.
+3. Add authorized redirect URI: `https://framefold.io/api/auth/google/callback.php`.
 4. Send you the resulting Client ID and Client Secret.
 
 Do not proceed to Step 2 until you have both values.
@@ -476,7 +476,7 @@ Use the `hostinger:hosting-deploy-static-site` skill to upload the new `api/auth
 
 - [ ] **Step 8: Verify in a real browser, signed in as the owner**
 
-Visit `https://framefold.com/api/auth/google/start.php`, complete Google's consent screen using `ethan@edhnmedia.com`, and confirm you land back on `https://framefold.com/`. Then visit `https://framefold.com/api/auth/me.php` directly and confirm it returns JSON with `"role":"owner"` and `"email":"ethan@edhnmedia.com"`.
+Visit `https://framefold.io/api/auth/google/start.php`, complete Google's consent screen using `ethan@edhnmedia.com`, and confirm you land back on `https://framefold.io/`. Then visit `https://framefold.io/api/auth/me.php` directly and confirm it returns JSON with `"role":"owner"` and `"email":"ethan@edhnmedia.com"`.
 
 Also verify the rejection path: open a private/incognito window, repeat the flow with a Google account that has never been invited, and confirm you're redirected with `authError` set to the "not invited" message (the frontend doesn't render this nicely yet — that's fine, confirm it via the URL query string for now).
 
@@ -635,20 +635,20 @@ Sign in as the owner in a browser (per Task 3, Step 8), open dev tools → Appli
 
 ```bash
 COOKIE="PHPSESSID=<paste value>"
-curl -s -b "$COOKIE" https://framefold.com/api/users/list.php
+curl -s -b "$COOKIE" https://framefold.io/api/users/list.php
 # Expect: {"users":[{"id":1,"email":"ethan@edhnmedia.com","role":"owner",...}]}
 
-curl -s -b "$COOKIE" -X POST https://framefold.com/api/users/invite.php \
+curl -s -b "$COOKIE" -X POST https://framefold.io/api/users/invite.php \
   -H "Content-Type: application/json" \
   -d '{"email":"test-admin@example.com","role":"admin","title":"Senior Editor"}'
 # Expect: {"id":2}
 
-curl -s -b "$COOKIE" -X POST https://framefold.com/api/users/invite.php \
+curl -s -b "$COOKIE" -X POST https://framefold.io/api/users/invite.php \
   -H "Content-Type: application/json" \
   -d '{"email":"test-admin@example.com","role":"admin"}'
 # Expect: 409 {"error":"already_exists"} — proves duplicate-email rejection
 
-curl -s -b "$COOKIE" -X POST https://framefold.com/api/users/update.php \
+curl -s -b "$COOKIE" -X POST https://framefold.io/api/users/update.php \
   -H "Content-Type: application/json" \
   -d '{"id":1,"role":"admin"}'
 # Expect: 403 {"error":"owner_is_protected"} — proves the owner can't be demoted, even by itself
@@ -846,14 +846,14 @@ Use the `hostinger:hosting-deploy-static-site` skill to upload the new `api/proj
 COOKIE="PHPSESSID=<paste value>"
 
 # find the test editor's numeric id first (from Task 4's invite, then have them sign in once,
-# or temporarily read it via: curl -s -b "$COOKIE" https://framefold.com/api/users/list.php)
+# or temporarily read it via: curl -s -b "$COOKIE" https://framefold.io/api/users/list.php)
 
-curl -s -b "$COOKIE" -X POST https://framefold.com/api/projects/create.php \
+curl -s -b "$COOKIE" -X POST https://framefold.io/api/projects/create.php \
   -H "Content-Type: application/json" \
   -d '{"title":"Test Project","client":"Test Client","editorId":<editor id>,"dueAt":"2026-09-15T17:00:00Z","priority":"Medium","platform":"YouTube","aspect":"16:9","deliverables":["Master file"],"assets":[],"references":[]}'
 # Expect: {"id":"PRJ-xxxx"}
 
-curl -s -b "$COOKIE" https://framefold.com/api/projects/list.php
+curl -s -b "$COOKIE" https://framefold.io/api/projects/list.php
 # Expect: {"projects":[{... "id":"PRJ-xxxx", "deliverablesList":[{"label":"Master file","done":0,...}], ...}]}
 ```
 
@@ -1785,14 +1785,14 @@ Use the `hostinger:hosting-deploy-static-site` skill to upload the updated `inde
 
 - [ ] **Step 14: Verify end-to-end in a browser**
 
-1. Visit `https://framefold.com/` in a fresh/incognito window — confirm you see only the auth screen with a single "Continue with Google" button (no GitHub button, no password form).
+1. Visit `https://framefold.io/` in a fresh/incognito window — confirm you see only the auth screen with a single "Continue with Google" button (no GitHub button, no password form).
 2. Sign in as `ethan@edhnmedia.com` — confirm you land in the dashboard, see the "Manage users" button, and the pipeline is empty (no mock projects).
 3. Open "Manage users", invite a real second Google account you control as `role: editor`.
-4. Sign that second account in (separate browser/incognito) via `https://framefold.com/` → Continue with Google — confirm it succeeds and shows an empty pipeline with no "Manage users" button and no "Create from brief" button.
+4. Sign that second account in (separate browser/incognito) via `https://framefold.io/` → Continue with Google — confirm it succeeds and shows an empty pipeline with no "Manage users" button and no "Create from brief" button.
 5. Back as the owner, click "Create from brief", confirm the "Assigned editor" field is a dropdown listing the invited editor, fill out the form, submit — confirm a toast shows the real `PRJ-xxxx` id and the drawer opens.
 6. Refresh the owner's page — confirm the created project is still there (proves it's coming from MySQL, not `localStorage`).
 7. As the editor, refresh their tab — confirm the newly assigned project now appears in their pipeline.
-8. In browser dev tools → Application → Local Storage for `framefold.com`, confirm it's empty or contains nothing app-related (no session, no projects).
+8. In browser dev tools → Application → Local Storage for `framefold.io`, confirm it's empty or contains nothing app-related (no session, no projects).
 
 - [ ] **Step 15: Commit**
 
@@ -1834,7 +1834,7 @@ In a private window, attempt Google sign-in with a Google account that was never
 
 - [ ] **Step 7: No `localStorage` usage remains**
 
-In dev tools, run `Object.keys(localStorage)` on `https://framefold.com/` before and after a full session (sign in, create a project, sign out). Confirm it's empty throughout.
+In dev tools, run `Object.keys(localStorage)` on `https://framefold.io/` before and after a full session (sign in, create a project, sign out). Confirm it's empty throughout.
 
 - [ ] **Step 8: Record results**
 

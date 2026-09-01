@@ -24,14 +24,14 @@ a real backend, and add a three-tier role/permission system.
 - No website is provisioned on the order yet.
 - The plan includes one unclaimed free-domain entitlement (`domain: null,
   type: "free_domain", status: "pending_setup"`). Domain to register:
-  **framefold.com**.
+  **framefold.io**.
 - Shared hosting natively supports PHP + MySQL (with phpMyAdmin) as a
   first-class environment; Node.js is supported only via a separate,
   more constrained app-manager layer. Decision: **PHP + MySQL** backend.
 
 ## Architecture
 
-One Hostinger website (`framefold.com`), serving:
+One Hostinger website (`framefold.io`), serving:
 
 - Static frontend at the document root — the existing single-page dashboard
   UI, adapted to call a real API instead of `localStorage`.
@@ -146,7 +146,7 @@ UI-only):
 2. Invitee clicks "Continue with Google" → browser hits
    `/api/auth/google/start.php`, which redirects to Google's OAuth 2.0
    authorization endpoint with `client_id`, `redirect_uri =
-   https://framefold.com/api/auth/google/callback.php`, `scope=openid
+   https://framefold.io/api/auth/google/callback.php`, `scope=openid
    email profile`, and a CSRF `state` token stored in the PHP session.
 3. Google redirects back to `callback.php` with `code` + `state`. The
    callback verifies `state`, exchanges `code` for tokens via a
@@ -198,7 +198,7 @@ regardless).
 
 ## Hosting / deployment plan
 
-1. Register `framefold.com` using the Business plan's free-domain
+1. Register `framefold.io` using the Business plan's free-domain
    entitlement.
 2. Create the Hostinger website for that domain
    (`hosting_createWebsiteV1`).
@@ -212,7 +212,7 @@ regardless).
    deny-all), excluded from git via `.gitignore`. Never commit secrets.
 6. **Manual step required from the user**: create an OAuth Client ID in
    Google Cloud Console (APIs & Services → Credentials) with authorized
-   redirect URI `https://framefold.com/api/auth/google/callback.php`, and
+   redirect URI `https://framefold.io/api/auth/google/callback.php`, and
    hand the client id/secret to be placed in the server config. This
    cannot be done via the Hostinger MCP or any tool available here.
 7. Deploy, then run the manual QA checklist below.
