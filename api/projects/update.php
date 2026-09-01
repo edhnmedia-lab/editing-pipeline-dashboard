@@ -15,6 +15,84 @@ if ($me['role'] === 'editor' && (int)$project['editor_id'] !== (int)$me['id']) {
     ff_json(403, ['error' => 'not_your_project']);
 }
 
+if (isset($input['title'])) {
+    if (!in_array($me['role'], ['owner', 'admin'], true)) {
+        ff_json(403, ['error' => 'forbidden']);
+    }
+
+    foreach (['title', 'client', 'editorId', 'dueAt', 'priority', 'platform', 'aspect'] as $key) {
+        if (empty($input[$key])) {
+            ff_json(422, ['error' => 'missing_field', 'field' => $key]);
+        }
+    }
+    if (!in_array($input['priority'], ['Urgent', 'High', 'Medium', 'Low'], true)) {
+        ff_json(422, ['error' => 'invalid_priority']);
+    }
+    $editorCheck = $pdo->prepare("SELECT id FROM users WHERE id = ? AND role = 'editor'");
+    $editorCheck->execute([$input['editorId']]);
+    if (!$editorCheck->fetch()) {
+        ff_json(422, ['error' => 'invalid_editor']);
+    }
+    $dueAt = date('Y-m-d H:i:s', strtotime($input['dueAt']));
+
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('UPDATE projects SET title = ?, client = ?, editor_id = ?, due_at = ?, priority = ?, platform = ?, aspect = ?, instructions = ?, updated_at = NOW() WHERE id = ?')
+            ->execute([
+                $input['title'], $input['client'], $input['editorId'], $dueAt,
+                $input['priority'], $input['platform'], $input['aspect'],
+                $input['instructions'] ?? null, $projectId,
+            ]);
+
+        // Deliverables: preserve the done-flag and id for any line whose label
+        // is unchanged, so fixing an unrelated field never resets an editor's
+        // completed checkboxes. Matches by exact label text.
+        $existingStmt = $pdo->prepare('SELECT id, label, done FROM deliverables WHERE project_id = ? ORDER BY sort_order');
+        $existingStmt->execute([$projectId]);
+        $existing = $existingStmt->fetchAll();
+        $usedIds = [];
+        foreach (($input['deliverables'] ?? []) as $i => $label) {
+            $matchId = null;
+            foreach ($existing as $row) {
+                if ($row['label'] === $label && !in_array($row['id'], $usedIds, true)) {
+                    $matchId = $row['id'];
+                    break;
+                }
+            }
+            if ($matchId !== null) {
+                $usedIds[] = $matchId;
+                $pdo->prepare('UPDATE deliverables SET sort_order = ? WHERE id = ?')->execute([$i, $matchId]);
+            } else {
+                $pdo->prepare('INSERT INTO deliverables (project_id, label, done, sort_order) VALUES (?, ?, 0, ?)')
+                    ->execute([$projectId, $label, $i]);
+            }
+        }
+        $staleIds = array_diff(array_column($existing, 'id'), $usedIds);
+        if ($staleIds) {
+            $placeholders = implode(',', array_fill(0, count($staleIds), '?'));
+            $pdo->prepare("DELETE FROM deliverables WHERE id IN ($placeholders)")->execute(array_values($staleIds));
+        }
+
+        // Assets and references carry no state of their own, so a plain
+        // replace (matching create.php's insert shape) is enough.
+        $pdo->prepare("DELETE FROM project_links WHERE project_id = ? AND kind = 'asset'")->execute([$projectId]);
+        foreach (($input['assets'] ?? []) as $item) {
+            $pdo->prepare('INSERT INTO project_links (project_id, kind, label, url) VALUES (?, "asset", ?, ?)')
+                ->execute([$projectId, $item['label'], $item['url']]);
+        }
+        $pdo->prepare("DELETE FROM project_links WHERE project_id = ? AND kind = 'reference'")->execute([$projectId]);
+        foreach (($input['references'] ?? []) as $item) {
+            $pdo->prepare('INSERT INTO project_links (project_id, kind, label, url) VALUES (?, "reference", ?, ?)')
+                ->execute([$projectId, $item['label'], $item['url']]);
+        }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+}
+
 if (isset($input['stage'])) {
     $validStages = ['brief_received', 'assets_ready', 'editing', 'internal_review', 'client_review', 'revisions_requested', 'approved', 'delivered'];
     if (!in_array($input['stage'], $validStages, true)) {

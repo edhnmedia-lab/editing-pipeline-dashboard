@@ -787,7 +787,7 @@ tbody tr:last-child td{border-bottom:0}
     <div class="modal-head">
       <div style="flex:1">
         <h2 class="modal-title" id="briefModalTitle" style="font-size:16px">New creative brief</h2>
-        <p class="drawer-sub">A valid brief creates a project in your pipeline at the “Brief received” stage.</p>
+        <p class="drawer-sub" id="briefModalSub">A valid brief creates a project in your pipeline at the “Brief received” stage.</p>
       </div>
       <button class="icon-btn" id="briefClose" aria-label="Close new brief form">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -877,7 +877,7 @@ tbody tr:last-child td{border-bottom:0}
         <span class="section-note">Fields marked * are required.</span>
         <span style="display:flex;gap:8px">
           <button type="button" class="btn btn-ghost" id="briefCancel">Cancel</button>
-          <button type="submit" class="btn btn-primary">Create project</button>
+          <button type="submit" class="btn btn-primary" id="briefSubmitBtn">Create project</button>
         </span>
       </div>
     </form>
@@ -1675,8 +1675,12 @@ function renderDrawer(){
   '</div>';
 
   /* creative brief — source of truth */
+  var canEditBrief = currentUser.role === "owner" || currentUser.role === "admin";
   html += '<div class="dblock">' +
-    '<h3>Creative brief</h3>' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">' +
+      '<h3 style="margin:0">Creative brief</h3>' +
+      (canEditBrief ? '<button type="button" class="btn btn-sm" data-action="edit-brief">Edit brief</button>' : '') +
+    '</div>' +
     '<dl class="kv">' +
       '<dt>Project ID</dt><dd>' + esc(p.id) + '</dd>' +
       '<dt>Client / brand</dt><dd>' + esc(p.client) + '</dd>' +
@@ -1849,6 +1853,17 @@ async function createProjectFromBrief(brief){
   return findProject(created.id);
 }
 
+async function updateProjectBrief(id, brief){
+  await apiPost("/api/projects/update.php", {
+    id:id, title:brief.title, client:brief.client, editorId:brief.editorId,
+    dueAt:brief.dueAt, priority:brief.priority, platform:brief.platform,
+    aspect:brief.aspect, instructions:brief.instructions,
+    deliverables:brief.deliverables, assets:brief.assets.map(function(u,i){ return {label:"Asset "+(i+1), url:u}; }),
+    references:brief.references.map(function(u,i){ return {label:"Reference "+(i+1), url:u}; })
+  });
+  await commit();
+}
+
 /* ============================================================
    10B. MANAGE USERS (owner/admin only; every check is re-enforced
    server-side in api/users/*.php regardless of what this UI allows)
@@ -1940,7 +1955,7 @@ function splitLines(value){
   return String(value || "").split(/\r?\n/).map(function(s){ return s.trim(); }).filter(Boolean);
 }
 
-function validateBrief(){
+function validateBrief(isEdit){
   var ok = true;
   var title = $("bTitle").value.trim();
   var client = $("bClient").value.trim();
@@ -1962,7 +1977,7 @@ function validateBrief(){
   }else{
     var due = new Date(dueDate + "T" + dueTime);
     if(isNaN(due.getTime())) dueErr = "That date could not be read.";
-    else if(due < new Date()) dueErr = "The deadline is in the past. Pick a future date and time.";
+    else if(!isEdit && due < new Date()) dueErr = "The deadline is in the past. Pick a future date and time.";
   }
   ok = setFieldError("f-due","e-due", dueErr) && ok;
 
@@ -1996,14 +2011,18 @@ function validateBrief(){
   };
 }
 
-function openBriefModal(){
+function populateBriefEditorSelect(selectedEditorId){
   var select = $("bEditor");
   select.innerHTML = "";
   teamDirectory.filter(function(u){ return u.role === "editor"; }).forEach(function(u){
     var o = document.createElement("option");
     o.value = u.id; o.textContent = (u.name || u.email) + (u.title ? " — " + u.title : "");
+    if(selectedEditorId != null && u.id === selectedEditorId) o.selected = true;
     select.appendChild(o);
   });
+}
+
+function showBriefModal(){
   state.lastFocused = document.activeElement;
   $("scrim").hidden = false;
   $("briefModal").hidden = false;
@@ -2013,6 +2032,48 @@ function openBriefModal(){
     $("bTitle").focus();
   });
 }
+
+function openBriefModal(){
+  state.editingProjectId = null;
+  $("briefModalTitle").textContent = "New creative brief";
+  $("briefModalSub").textContent = "A valid brief creates a project in your pipeline at the “Brief received” stage.";
+  $("briefSubmitBtn").textContent = "Create project";
+  populateBriefEditorSelect(null);
+  showBriefModal();
+}
+
+/* Pre-fills the same form used to create a project, in place, for
+   admin+ to fix a title, due date, deliverable list, etc. after a
+   project is already in the pipeline. Date/time fields are split into
+   local components the same way validateBrief() recombines them, so a
+   re-save without touching the date round-trips to the same instant. */
+function openBriefModalForEdit(id){
+  var p = findProject(id);
+  if(!p) return;
+  state.editingProjectId = id;
+  $("briefModalTitle").textContent = "Edit creative brief";
+  $("briefModalSub").textContent = "Changes save immediately and are visible to the assigned editor.";
+  $("briefSubmitBtn").textContent = "Save changes";
+
+  populateBriefEditorSelect(p.editorId);
+  $("bTitle").value = p.title;
+  $("bClient").value = p.client;
+  var due = new Date(p.dueAt);
+  $("bDueDate").value = due.getFullYear() + "-" + String(due.getMonth()+1).padStart(2,"0") + "-" + String(due.getDate()).padStart(2,"0");
+  $("bDueTime").value = String(due.getHours()).padStart(2,"0") + ":" + String(due.getMinutes()).padStart(2,"0");
+  $("bPriority").value = p.priority;
+  $("bPlatform").value = p.platform;
+  $("bAspect").value = p.aspect;
+  $("bDeliverables").value = (p.deliverablesList || []).map(function(d){ return d.label; }).join("\n");
+  $("bInstructions").value = p.instructions || "";
+  $("bAssets").value = (p.assets || []).map(function(a){ return a.url; }).join("\n");
+  $("bRefs").value = (p.references || []).map(function(r){ return r.url; }).join("\n");
+  Array.prototype.forEach.call(document.querySelectorAll("#briefForm .field.invalid"), function(f){ f.classList.remove("invalid"); });
+  Array.prototype.forEach.call(document.querySelectorAll("#briefForm .err"), function(e){ e.textContent = ""; });
+
+  showBriefModal();
+}
+
 function closeBriefModal(){
   $("briefModal").classList.remove("show");
   $("scrim").classList.remove("show");
@@ -2021,6 +2082,7 @@ function closeBriefModal(){
     if($("drawer").hidden) $("scrim").hidden = true;
   }, 180);
   if(state.lastFocused && state.lastFocused.focus) state.lastFocused.focus();
+  state.editingProjectId = null;
 }
 
 /* ============================================================
@@ -2196,7 +2258,9 @@ function wireEvents(){
 
   $("drawerBody").addEventListener("click", function(e){
     var btn = e.target.closest('[data-action="resolve"]');
-    if(btn){ resolveRevision(state.openProjectId, btn.getAttribute("data-id")); }
+    if(btn){ resolveRevision(state.openProjectId, btn.getAttribute("data-id")); return; }
+    var editBtn = e.target.closest('[data-action="edit-brief"]');
+    if(editBtn){ openBriefModalForEdit(state.openProjectId); }
   });
 
   $("drawerBody").addEventListener("submit", function(e){
@@ -2301,7 +2365,8 @@ function wireEvents(){
   $("briefCancel").addEventListener("click", closeBriefModal);
   $("briefForm").addEventListener("submit", async function(e){
     e.preventDefault();
-    var brief = validateBrief();
+    var isEdit = state.editingProjectId !== null;
+    var brief = validateBrief(isEdit);
     var noEditors = !$("bEditor").value;
     setFieldError("f-editor","e-editor", noEditors ? "Invite at least one editor before assigning a project." : "");
     if(!brief || noEditors){
@@ -2311,6 +2376,17 @@ function wireEvents(){
       return;
     }
     brief.editorId = Number($("bEditor").value);
+    if(isEdit){
+      var editingId = state.editingProjectId;
+      try{
+        await updateProjectBrief(editingId, brief);
+        closeBriefModal();
+        toast("ok","Brief updated", "Changes saved to " + editingId + ".");
+      }catch(err){
+        toast("err","Could not save changes", err.message);
+      }
+      return;
+    }
     try{
       var created = await createProjectFromBrief(brief);
       $("briefForm").reset();
