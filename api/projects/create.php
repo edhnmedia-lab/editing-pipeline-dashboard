@@ -20,13 +20,15 @@ $insertSql = 'INSERT INTO projects
     (id, title, client, editor_id, assigned_by, date_assigned, due_at, priority, stage, version, platform, aspect, delivery_link, instructions, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, "brief_received", 1, ?, ?, ?, ?, NOW(), NOW())';
 
+$dueAt = date('Y-m-d H:i:s', strtotime($input['dueAt']));
+
 $id = null;
 for ($attempt = 0; $attempt < 5; $attempt++) {
     $candidateId = 'PRJ-' . random_int(1000, 9999);
     try {
         $pdo->prepare($insertSql)->execute([
             $candidateId, $input['title'], $input['client'], $input['editorId'], $me['id'],
-            $input['dueAt'], $input['priority'], $input['platform'], $input['aspect'],
+            $dueAt, $input['priority'], $input['platform'], $input['aspect'],
             $input['deliveryLink'] ?? null, $input['instructions'] ?? null,
         ]);
         $id = $candidateId;

@@ -861,16 +861,6 @@ tbody tr:last-child td{border-bottom:0}
           </div>
         </div>
 
-        <div class="row-2">
-          <div class="field">
-            <label for="bStage">Starting stage</label>
-            <select id="bStage"></select>
-          </div>
-          <div class="field">
-            <label for="bNotes">Initial revision or context note (optional)</label>
-            <input type="text" id="bNotes" placeholder="e.g. Client wants a punchier first 3 seconds" autocomplete="off" />
-          </div>
-        </div>
       </div>
       <div class="modal-foot">
         <span class="section-note">Fields marked * are required.</span>
@@ -1979,12 +1969,10 @@ function validateBrief(){
     priority:$("bPriority").value,
     platform:$("bPlatform").value,
     aspect:$("bAspect").value,
-    stage:$("bStage").value,
     deliverables:deliverables,
     instructions:instructions,
     assets:assets,
-    references:references,
-    note:$("bNotes").value.trim()
+    references:references
   };
 }
 
@@ -2195,9 +2183,11 @@ function wireEvents(){
   $("briefForm").addEventListener("submit", async function(e){
     e.preventDefault();
     var brief = validateBrief();
-    if(!brief || !$("bEditor").value){
+    var noEditors = !$("bEditor").value;
+    setFieldError("f-editor","e-editor", noEditors ? "Invite at least one editor before assigning a project." : "");
+    if(!brief || noEditors){
       toast("err","Brief incomplete","Fix the highlighted fields and submit again.");
-      var firstInvalid = document.querySelector("#briefForm .field.invalid input, #briefForm .field.invalid textarea");
+      var firstInvalid = document.querySelector("#briefForm .field.invalid input, #briefForm .field.invalid select, #briefForm .field.invalid textarea");
       if(firstInvalid) firstInvalid.focus();
       return;
     }
@@ -2245,14 +2235,6 @@ function populateSelects(){
     o.value = s.id; o.textContent = s.label;
     statusSelect.appendChild(o);
   });
-  var stageSelect = $("bStage");
-  STAGES.slice(0,3).forEach(function(s, i){
-    var o = document.createElement("option");
-    o.value = s.id; o.textContent = s.label;
-    if(i === 0) o.selected = true;
-    stageSelect.appendChild(o);
-  });
-
   /* default the new-brief deadline to one week out at 17:00 */
   var d = new Date();
   d.setDate(d.getDate() + 7);

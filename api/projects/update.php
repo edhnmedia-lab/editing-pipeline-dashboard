@@ -18,7 +18,8 @@ if ($me['role'] === 'editor' && (int)$project['editor_id'] !== (int)$me['id']) {
 if (isset($input['stage'])) {
     $closed = ['approved' => true, 'delivered' => true];
     $deliveredAtSql = isset($closed[$input['stage']]) ? 'NOW()' : 'NULL';
-    $pdo->prepare("UPDATE projects SET stage = ?, delivered_at = $deliveredAtSql, updated_at = NOW() WHERE id = ?")
+    $deliveredOnTimeSql = $input['stage'] === 'delivered' ? '(NOW() <= due_at)' : 'NULL';
+    $pdo->prepare("UPDATE projects SET stage = ?, delivered_at = $deliveredAtSql, delivered_on_time = $deliveredOnTimeSql, updated_at = NOW() WHERE id = ?")
         ->execute([$input['stage'], $projectId]);
     if ($input['stage'] === 'revisions_requested') {
         $pdo->prepare('UPDATE projects SET version = version + 1 WHERE id = ?')->execute([$projectId]);
