@@ -1,0 +1,3 @@
+<FilesMatch "^(config\.php|config\.example\.php|schema\.sql|setup\.php)$">
+  Require all denied
+</FilesMatch>
