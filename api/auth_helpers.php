@@ -1,6 +1,12 @@
 <?php
 require_once __DIR__ . '/db.php';
 
+ini_set('display_errors', '0');
+set_exception_handler(function (Throwable $e) {
+    error_log('[ff] ' . $e->getMessage());
+    ff_json(500, ['error' => 'server_error']);
+});
+
 function ff_start_session(): void {
     if (session_status() !== PHP_SESSION_ACTIVE) {
         session_set_cookie_params([

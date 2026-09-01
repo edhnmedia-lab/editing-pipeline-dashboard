@@ -16,6 +16,10 @@ if ($me['role'] === 'editor' && (int)$project['editor_id'] !== (int)$me['id']) {
 }
 
 if (isset($input['stage'])) {
+    $validStages = ['brief_received', 'assets_ready', 'editing', 'internal_review', 'client_review', 'revisions_requested', 'approved', 'delivered'];
+    if (!in_array($input['stage'], $validStages, true)) {
+        ff_json(422, ['error' => 'invalid_stage']);
+    }
     $closed = ['approved' => true, 'delivered' => true];
     $deliveredAtSql = isset($closed[$input['stage']]) ? 'NOW()' : 'NULL';
     $deliveredOnTimeSql = $input['stage'] === 'delivered' ? '(NOW() <= due_at)' : 'NULL';

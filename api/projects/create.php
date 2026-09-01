@@ -9,6 +9,10 @@ foreach (['title', 'client', 'editorId', 'dueAt', 'priority', 'platform', 'aspec
     }
 }
 
+if (!in_array($input['priority'], ['Urgent', 'High', 'Medium', 'Low'], true)) {
+    ff_json(422, ['error' => 'invalid_priority']);
+}
+
 $pdo = ff_db();
 $editorCheck = $pdo->prepare("SELECT id FROM users WHERE id = ? AND role = 'editor'");
 $editorCheck->execute([$input['editorId']]);

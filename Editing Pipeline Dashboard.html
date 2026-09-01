@@ -512,10 +512,6 @@ tbody tr:last-child td{border-bottom:0}
 
 <!-- ============================================================
      AUTH SCREEN
-     [AUTH] Simulated sign-in / account creation for the prototype.
-     No control here lets a signed-in person choose someone else's
-     editor account — see the JS AUTH block for what a real
-     integration replaces this with.
      ============================================================ -->
 <div class="auth-screen" id="authScreen">
   <div class="auth-card">
@@ -923,36 +919,6 @@ tbody tr:last-child td{border-bottom:0}
 "use strict";
 
 /* ============================================================
-   0. PRODUCTION INTEGRATION MAP
-   ------------------------------------------------------------
-   [AUTH]        The entire AUTH SCREEN section below (sign-in, create
-                 account, "Continue with Google/GitHub") is a UX
-                 simulation with no real identity provider behind it —
-                 a static file has nowhere safe to hold an OAuth client
-                 secret. Replace it with a real redirect to Google/
-                 GitHub OAuth or a hosted auth service (NextAuth.js,
-                 Auth0, Clerk, Supabase Auth) backed by a server that
-                 verifies the token and sets an http-only session
-                 cookie. SESSION below must then be populated from that
-                 verified server session on every request — the client
-                 must never be the thing that decides which editor it is.
-   [DB]          Replace SEED_PROJECTS with a server query, e.g.
-                 GET /api/projects  ->  SELECT * FROM projects
-                                        WHERE assigned_editor_id = $session.editorId
-   [AUTHZ/RLS]   Enforce the same predicate in the database (Postgres RLS,
-                 Notion data-source permissions, etc.). The filtering done in
-                 this file is presentation logic ONLY and provides no security.
-   [INGEST]      Creative briefs arrive from the brief intake form / Notion
-                 database webhook / producer tool; the server validates and
-                 assigns the editor, then emits a project row.
-   [FILES]       Asset, reference, and delivery links resolve through signed,
-                 time-limited URLs from object storage (S3/R2/Drive).
-   [NOTIFY]      Notifications shown here are derived client-side for the demo.
-                 In production they come from a server-side notification feed.
-   [PERSIST]     localStorage stands in for the API write layer.
-   ============================================================ */
-
-/* ============================================================
    1. DATA LAYER
    ============================================================ */
 
@@ -1015,6 +981,11 @@ var state = {
   lastFocused: null
 };
 
+function mysqlDatetimeToIso(s){
+  if(!s) return s;
+  return s.replace(" ", "T") + "Z";
+}
+
 async function load(){
   var res = await fetch("/api/projects/list.php");
   if(!res.ok){
@@ -1026,17 +997,17 @@ async function load(){
   state.projects = (data.projects || []).map(function(p){
     return {
       id:p.id, title:p.title, client:p.client, editorId:p.editor_id,
-      dateAssigned:p.date_assigned, dueAt:p.due_at, priority:p.priority,
+      dateAssigned:mysqlDatetimeToIso(p.date_assigned), dueAt:mysqlDatetimeToIso(p.due_at), priority:p.priority,
       stage:p.stage, version:p.version, platform:p.platform, aspect:p.aspect,
       deliveryLink:p.delivery_link || "", instructions:p.instructions || "",
-      deliveredAt:p.delivered_at, deliveredOnTime:p.delivered_on_time === null ? null : !!(p.delivered_on_time * 1),
+      deliveredAt:mysqlDatetimeToIso(p.delivered_at), deliveredOnTime:p.delivered_on_time === null ? null : !!(p.delivered_on_time * 1),
       deliverablesList:(p.deliverablesList || []).map(function(d){
         return { id:d.id, label:d.label, done:!!(d.done * 1) };
       }),
       assets:(p.assets || []).map(function(a){ return { label:a.label, url:a.url }; }),
       references:(p.references || []).map(function(r){ return { label:r.label, url:r.url }; }),
       revisions:(p.revisions || []).map(function(r){
-        return { id:r.id, note:r.note, author:r.author, createdAt:r.created_at, resolved:!!(r.resolved * 1) };
+        return { id:r.id, note:r.note, author:r.author, createdAt:mysqlDatetimeToIso(r.created_at), resolved:!!(r.resolved * 1) };
       })
     };
   });
@@ -1298,7 +1269,7 @@ function progressBar(value){
 
 function renderIdentity(){
   var user = me();
-  var initials = user.name.split(" ").map(function(w){ return w.charAt(0); }).join("").slice(0,2).toUpperCase();
+  var initials = (user.name || user.email).split(" ").map(function(w){ return w.charAt(0); }).join("").slice(0,2).toUpperCase();
   $("avatarInitials").textContent = initials;
   $("profileName").textContent = user.name;
   $("profileRole").textContent = user.title;
@@ -2081,6 +2052,7 @@ function wireEvents(){
   $("drawerClose").addEventListener("click", closeDrawer);
   $("scrim").addEventListener("click", function(){
     if(!$("briefModal").hidden) closeBriefModal();
+    else if(!$("usersModal").hidden) closeUsersModal();
     else closeDrawer();
   });
 
@@ -2149,11 +2121,15 @@ function wireEvents(){
       closeProfileMenu();
     }
   });
-  $("signOutBtn").addEventListener("click", signOut);
+  $("signOutBtn").addEventListener("click", function(){
+    signOut().catch(function(e){ toast("err","Could not sign out", e.message); });
+  });
 
   if(currentUser.role === "owner" || currentUser.role === "admin"){
     $("manageUsersBtn").hidden = false;
-    $("manageUsersBtn").addEventListener("click", openUsersModal);
+    $("manageUsersBtn").addEventListener("click", function(){
+      openUsersModal().catch(function(e){ toast("err","Could not open Manage Users", e.message); });
+    });
     $("usersClose").addEventListener("click", closeUsersModal);
     $("inviteForm").addEventListener("submit", async function(e){
       e.preventDefault();
@@ -2287,7 +2263,13 @@ async function enterApp(){
 async function init(){
   var user = await fetchCurrentUser();
   if(user){
-    enterApp();
+    try{
+      await enterApp();
+    }catch(e){
+      showAuthScreen();
+      $("authError").textContent = "Something went wrong loading your dashboard. Please try refreshing.";
+      $("authError").hidden = false;
+    }
   }else{
     showAuthScreen();
   }

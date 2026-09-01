@@ -20,5 +20,10 @@ if ($me['role'] === 'admin' && $target['role'] !== 'editor') {
 if ($targetId === (int)$me['id']) {
     ff_json(403, ['error' => 'cannot_remove_self']);
 }
+$hasProjects = $pdo->prepare('SELECT 1 FROM projects WHERE editor_id = ? LIMIT 1');
+$hasProjects->execute([$targetId]);
+if ($hasProjects->fetch()) {
+    ff_json(409, ['error' => 'user_has_projects']);
+}
 $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$targetId]);
 ff_json(200, ['ok' => true]);
