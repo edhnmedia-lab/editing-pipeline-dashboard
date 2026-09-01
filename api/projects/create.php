@@ -16,15 +16,32 @@ if (!$editorCheck->fetch()) {
     ff_json(422, ['error' => 'invalid_editor']);
 }
 
-$id = 'PRJ-' . random_int(1000, 9999);
-$pdo->prepare('INSERT INTO projects
+$insertSql = 'INSERT INTO projects
     (id, title, client, editor_id, assigned_by, date_assigned, due_at, priority, stage, version, platform, aspect, delivery_link, instructions, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, "brief_received", 1, ?, ?, ?, ?, NOW(), NOW())')
-    ->execute([
-        $id, $input['title'], $input['client'], $input['editorId'], $me['id'],
-        $input['dueAt'], $input['priority'], $input['platform'], $input['aspect'],
-        $input['deliveryLink'] ?? null, $input['instructions'] ?? null,
-    ]);
+    VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, "brief_received", 1, ?, ?, ?, ?, NOW(), NOW())';
+
+$id = null;
+for ($attempt = 0; $attempt < 5; $attempt++) {
+    $candidateId = 'PRJ-' . random_int(1000, 9999);
+    try {
+        $pdo->prepare($insertSql)->execute([
+            $candidateId, $input['title'], $input['client'], $input['editorId'], $me['id'],
+            $input['dueAt'], $input['priority'], $input['platform'], $input['aspect'],
+            $input['deliveryLink'] ?? null, $input['instructions'] ?? null,
+        ]);
+        $id = $candidateId;
+        break;
+    } catch (PDOException $e) {
+        if ((int)($e->errorInfo[1] ?? 0) === 1062) {
+            continue; // duplicate id, try again with a freshly generated one
+        }
+        throw $e;
+    }
+}
+
+if ($id === null) {
+    ff_json(500, ['error' => 'id_generation_failed']);
+}
 
 foreach (($input['deliverables'] ?? []) as $i => $label) {
     $pdo->prepare('INSERT INTO deliverables (project_id, label, done, sort_order) VALUES (?, ?, 0, ?)')
