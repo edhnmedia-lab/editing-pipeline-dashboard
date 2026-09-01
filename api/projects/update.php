@@ -25,6 +25,16 @@ if (isset($input['title'])) {
             ff_json(422, ['error' => 'missing_field', 'field' => $key]);
         }
     }
+    // Unlike create.php (where an empty array just means "nothing to insert
+    // yet"), an empty array here would actively delete every existing
+    // deliverable/asset row for this project — so these two are required
+    // on edit even though create.php doesn't enforce it either.
+    if (empty($input['deliverables'])) {
+        ff_json(422, ['error' => 'missing_field', 'field' => 'deliverables']);
+    }
+    if (empty($input['assets'])) {
+        ff_json(422, ['error' => 'missing_field', 'field' => 'assets']);
+    }
     if (!in_array($input['priority'], ['Urgent', 'High', 'Medium', 'Low'], true)) {
         ff_json(422, ['error' => 'invalid_priority']);
     }

@@ -980,6 +980,11 @@ async function loadTeamDirectory(){
   var res = await fetch("/api/users/list.php");
   var data = await res.json();
   teamDirectory = data.users || [];
+  /* Keeps the owner/admin-only assignee filter in sync whenever the
+     directory changes — invites, role changes, removals — not just on
+     initial load, so a newly invited editor is filterable without a
+     page reload. */
+  populateAssigneeFilter();
 }
 
 /* ============================================================
@@ -1485,7 +1490,7 @@ function renderPerfNote(){
     return;
   }
   if(state.assignee === "all"){
-    note.textContent = "Delivered videos over the last 6 months — your data only";
+    note.textContent = "Delivered videos over the last 6 months — select an assignee above to see their data";
   }else{
     note.textContent = "Delivered videos over the last 6 months — " + editorName(Number(state.assignee)) + "’s data";
   }
@@ -2116,12 +2121,23 @@ function clearFilters(){
 
 function populateAssigneeFilter(){
   var select = $("assigneeFilter");
+  var editors = teamDirectory.filter(function(u){ return u.role === "editor"; });
   select.innerHTML = '<option value="all">All assignees</option>';
-  teamDirectory.filter(function(u){ return u.role === "editor"; }).forEach(function(u){
+  editors.forEach(function(u){
     var o = document.createElement("option");
     o.value = u.id; o.textContent = u.name || u.email;
     select.appendChild(o);
   });
+  /* Rebuilding the <select> resets its DOM selection, so if the current
+     filter still points at a still-valid editor, restore it — otherwise
+     a mid-session directory refresh (invite/remove/role change) would
+     silently desync the visible dropdown from state.assignee. */
+  if(state.assignee !== "all" && editors.some(function(u){ return String(u.id) === state.assignee; })){
+    select.value = state.assignee;
+  }else{
+    state.assignee = "all";
+    select.value = "all";
+  }
 }
 
 /* Drag-and-drop stage changes. Delegated on the #kanban container itself
@@ -2474,7 +2490,6 @@ async function enterApp(){
   $("appRoot").hidden = false;
   populateSelects();
   await loadTeamDirectory();
-  populateAssigneeFilter();
   await load();
   renderIdentity();
   setView("pipeline");
