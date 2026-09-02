@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../auth_helpers.php';
+require_once __DIR__ . '/../lib/mailer.php';
 $me = ff_require_role(['owner', 'admin']);
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
 
@@ -14,9 +15,10 @@ if (!in_array($input['priority'], ['Urgent', 'High', 'Medium', 'Low'], true)) {
 }
 
 $pdo = ff_db();
-$editorCheck = $pdo->prepare("SELECT id FROM users WHERE id = ? AND role = 'editor'");
+$editorCheck = $pdo->prepare("SELECT id, email, name FROM users WHERE id = ? AND role = 'editor'");
 $editorCheck->execute([$input['editorId']]);
-if (!$editorCheck->fetch()) {
+$editor = $editorCheck->fetch();
+if (!$editor) {
     ff_json(422, ['error' => 'invalid_editor']);
 }
 
@@ -61,5 +63,11 @@ foreach (($input['references'] ?? []) as $item) {
     $pdo->prepare('INSERT INTO project_links (project_id, kind, label, url) VALUES (?, "reference", ?, ?)')
         ->execute([$id, $item['label'], $item['url']]);
 }
+
+ff_notify_assigned($editor['email'], $editor['name'] ?? $editor['email'], [
+    'title' => $input['title'],
+    'client' => $input['client'],
+    'due_at' => $dueAt,
+]);
 
 ff_json(201, ['id' => $id]);
