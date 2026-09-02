@@ -50,7 +50,7 @@ if (isset($input['title'])) {
 
     $pdo->beginTransaction();
     try {
-        $pdo->prepare('UPDATE projects SET title = ?, client = ?, editor_id = ?, due_at = ?, priority = ?, platform = ?, aspect = ?, instructions = ?, updated_at = NOW() WHERE id = ?')
+        $pdo->prepare('UPDATE projects SET title = ?, client = ?, editor_id = ?, due_at = ?, priority = ?, platform = ?, aspect = ?, instructions = ?, reminder_3day_sent_at = NULL, reminder_due_sent_at = NULL, updated_at = NOW() WHERE id = ?')
             ->execute([
                 $input['title'], $input['client'], $input['editorId'], $dueAt,
                 $input['priority'], $input['platform'], $input['aspect'],
@@ -166,11 +166,12 @@ $afterStmt = $pdo->prepare(
 $afterStmt->execute([$projectId]);
 $after = $afterStmt->fetch();
 if ($after && $after['stage'] !== $stageBefore) {
-    if (in_array($after['stage'], ['revisions_requested', 'approved'], true)) {
+    if (in_array($after['stage'], ['revisions_requested', 'approved'], true) && $after['editor_email'] !== $me['email']) {
         ff_notify_stage_change($after['editor_email'], $after['editor_name'] ?? $after['editor_email'], $after, $after['stage']);
     }
     if ($after['stage'] === 'internal_review') {
         $adminEmails = $pdo->query("SELECT email FROM users WHERE role IN ('owner','admin') AND status = 'active'")->fetchAll(PDO::FETCH_COLUMN);
+        $adminEmails = array_values(array_filter($adminEmails, function($email) use ($me) { return $email !== $me['email']; }));
         ff_notify_internal_review($adminEmails, $after);
     }
 }

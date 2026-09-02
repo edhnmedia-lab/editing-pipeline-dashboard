@@ -1,6 +1,10 @@
 <?php
 require_once __DIR__ . '/db.php';
 
+if (PHP_SAPI === 'cli') {
+    parse_str($argv[1] ?? '', $_GET);
+}
+
 $cfg = ff_config();
 if (($_GET['token'] ?? '') !== $cfg['setup_token']) {
     http_response_code(403);

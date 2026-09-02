@@ -10,6 +10,8 @@ function ff_send_email(string $to, string $subject, string $html): void {
         return;
     }
 
+    $subject = preg_replace('/[\r\n]+/', ' ', $subject);
+
     $payload = json_encode([
         'from' => $from,
         'to' => [$to],
@@ -26,7 +28,8 @@ function ff_send_email(string $to, string $subject, string $html): void {
             'Content-Type: application/json',
         ],
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 10,
+        CURLOPT_TIMEOUT => 4,
+        CURLOPT_CONNECTTIMEOUT => 2,
     ]);
     $result = curl_exec($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);

@@ -18,10 +18,16 @@ $threeDayStmt = $pdo->query(
        AND p.reminder_3day_sent_at IS NULL"
 );
 $threeDayCount = 0;
+$threeDayFailures = 0;
 foreach ($threeDayStmt->fetchAll() as $row) {
-    ff_notify_due_reminder($row['editor_email'], $row['editor_name'] ?? $row['editor_email'], $row, '3day');
-    $pdo->prepare('UPDATE projects SET reminder_3day_sent_at = NOW() WHERE id = ?')->execute([$row['id']]);
-    $threeDayCount++;
+    try {
+        ff_notify_due_reminder($row['editor_email'], $row['editor_name'] ?? $row['editor_email'], $row, '3day');
+        $pdo->prepare('UPDATE projects SET reminder_3day_sent_at = NOW() WHERE id = ?')->execute([$row['id']]);
+        $threeDayCount++;
+    } catch (Throwable $e) {
+        error_log('[ff-cron] 3-day reminder failed for project ' . $row['id'] . ': ' . $e->getMessage());
+        $threeDayFailures++;
+    }
 }
 
 $dueStmt = $pdo->query(
@@ -32,10 +38,16 @@ $dueStmt = $pdo->query(
        AND p.reminder_due_sent_at IS NULL"
 );
 $dueCount = 0;
+$dueFailures = 0;
 foreach ($dueStmt->fetchAll() as $row) {
-    ff_notify_due_reminder($row['editor_email'], $row['editor_name'] ?? $row['editor_email'], $row, 'due');
-    $pdo->prepare('UPDATE projects SET reminder_due_sent_at = NOW() WHERE id = ?')->execute([$row['id']]);
-    $dueCount++;
+    try {
+        ff_notify_due_reminder($row['editor_email'], $row['editor_name'] ?? $row['editor_email'], $row, 'due');
+        $pdo->prepare('UPDATE projects SET reminder_due_sent_at = NOW() WHERE id = ?')->execute([$row['id']]);
+        $dueCount++;
+    } catch (Throwable $e) {
+        error_log('[ff-cron] past-due reminder failed for project ' . $row['id'] . ': ' . $e->getMessage());
+        $dueFailures++;
+    }
 }
 
-error_log("[ff-cron] due_date_check: sent $threeDayCount 3-day reminders, $dueCount due/overdue reminders");
+error_log("[ff-cron] due_date_check: sent $threeDayCount 3-day reminders ($threeDayFailures failed), $dueCount due/overdue reminders ($dueFailures failed)");
