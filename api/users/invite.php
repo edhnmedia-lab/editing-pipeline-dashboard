@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../auth_helpers.php';
+require_once __DIR__ . '/../lib/mailer.php';
 $me = ff_require_role(['owner', 'admin']);
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
 $email = trim($input['email'] ?? '');
@@ -25,4 +26,5 @@ if ($existing->fetch()) {
 
 $pdo->prepare('INSERT INTO users (email, title, role, status, invited_by, created_at) VALUES (?, ?, ?, "invited", ?, NOW())')
     ->execute([$email, $title, $requestedRole, $me['id']]);
+ff_notify_invite($email, $me['name'] ?? $me['email'], $requestedRole);
 ff_json(201, ['id' => (int)$pdo->lastInsertId()]);
