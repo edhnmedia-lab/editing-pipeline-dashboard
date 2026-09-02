@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS projects (
   delivered_on_time TINYINT(1) NULL,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
+  reminder_3day_sent_at DATETIME NULL,
+  reminder_due_sent_at DATETIME NULL,
   FOREIGN KEY (editor_id) REFERENCES users(id),
   FOREIGN KEY (assigned_by) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

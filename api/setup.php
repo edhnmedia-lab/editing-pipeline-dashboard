@@ -14,6 +14,17 @@ foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
     $pdo->exec($statement);
 }
 
+// Idempotent migrations for columns added after schema.sql was first
+// applied to production — safe to re-run this whole script at any time.
+$hasCol = $pdo->query("SHOW COLUMNS FROM projects LIKE 'reminder_3day_sent_at'")->fetch();
+if (!$hasCol) {
+    $pdo->exec('ALTER TABLE projects ADD COLUMN reminder_3day_sent_at DATETIME NULL');
+}
+$hasCol = $pdo->query("SHOW COLUMNS FROM projects LIKE 'reminder_due_sent_at'")->fetch();
+if (!$hasCol) {
+    $pdo->exec('ALTER TABLE projects ADD COLUMN reminder_due_sent_at DATETIME NULL');
+}
+
 $ownerEmail = $cfg['app']['owner_email'];
 $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
 $stmt->execute([$ownerEmail]);
