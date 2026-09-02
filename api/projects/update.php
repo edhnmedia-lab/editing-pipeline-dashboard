@@ -1,11 +1,12 @@
 <?php
 require_once __DIR__ . '/../auth_helpers.php';
+require_once __DIR__ . '/../lib/mailer.php';
 $me = ff_require_auth();
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
 $projectId = $input['id'] ?? '';
 
 $pdo = ff_db();
-$stmt = $pdo->prepare('SELECT editor_id FROM projects WHERE id = ?');
+$stmt = $pdo->prepare('SELECT editor_id, stage FROM projects WHERE id = ?');
 $stmt->execute([$projectId]);
 $project = $stmt->fetch();
 if (!$project) {
@@ -14,6 +15,8 @@ if (!$project) {
 if ($me['role'] === 'editor' && (int)$project['editor_id'] !== (int)$me['id']) {
     ff_json(403, ['error' => 'not_your_project']);
 }
+$stageBefore = $project['stage'];
+$editorBefore = (int)$project['editor_id'];
 
 if (isset($input['title'])) {
     if (!in_array($me['role'], ['owner', 'admin'], true)) {
@@ -101,6 +104,19 @@ if (isset($input['title'])) {
         $pdo->rollBack();
         throw $e;
     }
+
+    if ((int)$input['editorId'] !== $editorBefore) {
+        $newEditorStmt = $pdo->prepare('SELECT email, name FROM users WHERE id = ?');
+        $newEditorStmt->execute([$input['editorId']]);
+        $newEditor = $newEditorStmt->fetch();
+        if ($newEditor) {
+            ff_notify_assigned($newEditor['email'], $newEditor['name'] ?? $newEditor['email'], [
+                'title' => $input['title'],
+                'client' => $input['client'],
+                'due_at' => $dueAt,
+            ]);
+        }
+    }
 }
 
 if (isset($input['stage'])) {
@@ -141,6 +157,22 @@ if (isset($input['resolveRevisionId'])) {
 if (array_key_exists('deliveryLink', $input)) {
     $pdo->prepare('UPDATE projects SET delivery_link = ?, updated_at = NOW() WHERE id = ?')
         ->execute([$input['deliveryLink'], $projectId]);
+}
+
+$afterStmt = $pdo->prepare(
+    'SELECT p.stage, p.title, p.client, u.email AS editor_email, u.name AS editor_name
+     FROM projects p JOIN users u ON u.id = p.editor_id WHERE p.id = ?'
+);
+$afterStmt->execute([$projectId]);
+$after = $afterStmt->fetch();
+if ($after && $after['stage'] !== $stageBefore) {
+    if (in_array($after['stage'], ['revisions_requested', 'approved'], true)) {
+        ff_notify_stage_change($after['editor_email'], $after['editor_name'] ?? $after['editor_email'], $after, $after['stage']);
+    }
+    if ($after['stage'] === 'internal_review') {
+        $adminEmails = $pdo->query("SELECT email FROM users WHERE role IN ('owner','admin') AND status = 'active'")->fetchAll(PDO::FETCH_COLUMN);
+        ff_notify_internal_review($adminEmails, $after);
+    }
 }
 
 ff_json(200, ['ok' => true]);
